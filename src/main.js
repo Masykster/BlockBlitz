@@ -415,23 +415,25 @@ function formatTimer(seconds) {
 function updateModeHUD() {
   bestScores = loadBestScores();
   if (currentMode === 'adventure') {
-    hudPillIcon.className = 'fa-solid fa-compass text-emerald-400 text-base';
-    hudPillLabel.textContent = `Stage ${currentLevel}`;
-    bestScoreEl.textContent = currentLevelTitle || `Lv ${currentLevel}`;
-    bestScoreEl.className = 'text-xs sm:text-sm font-extrabold text-emerald-300 leading-tight';
+    hudPillIcon.className = 'fa-solid fa-compass text-emerald-400 text-base shrink-0';
+    hudPillLabel.textContent = 'Petualangan';
+    bestScoreEl.textContent = `Stage ${currentLevel}`;
+    bestScoreEl.className = 'text-base sm:text-lg font-extrabold text-emerald-300 leading-tight';
 
-    modeStatusPill.classList.remove('hidden');
+    modeStatusPill.classList.remove('hidden', 'border-rose-400', 'text-rose-200');
+    modeStatusPill.classList.add('flex');
     modeStatusIcon.className = 'fa-solid fa-bullseye text-emerald-300';
-    modeStatusText.textContent = `Target: ${Math.min(linesClearedInRun, targetLines)}/${targetLines} Baris`;
-    modeStatusPill.classList.remove('border-rose-400', 'text-rose-200');
+    const stagePrefix = currentLevelTitle ? `${currentLevelTitle} • ` : '';
+    modeStatusText.textContent = `${stagePrefix}${Math.min(linesClearedInRun, targetLines)}/${targetLines} Baris`;
   } else {
-    hudPillIcon.className = 'fa-solid fa-crown text-amber-400 text-base';
-    hudPillLabel.textContent = `${GAME_MODES[currentMode].label}`;
+    hudPillIcon.className = 'fa-solid fa-crown text-amber-400 text-base shrink-0';
+    hudPillLabel.textContent = 'Terbaik';
     bestScoreEl.textContent = (bestScores[currentMode] || 0).toLocaleString('id-ID');
     bestScoreEl.className = 'text-base sm:text-lg font-extrabold text-amber-400 leading-tight';
 
     if (currentMode === 'blitz') {
       modeStatusPill.classList.remove('hidden');
+      modeStatusPill.classList.add('flex');
       modeStatusIcon.className = 'fa-solid fa-stopwatch text-amber-300';
       modeStatusText.textContent = formatTimer(timeLeft);
       if (timeLeft <= 15) {
@@ -452,6 +454,7 @@ function updateModeHUD() {
         }
       }
       modeStatusPill.classList.remove('hidden');
+      modeStatusPill.classList.add('flex');
       modeStatusIcon.className = 'fa-solid fa-bomb text-rose-400';
       modeStatusText.textContent = bombs > 0 ? `Bom: ${bombs} (Min ${minBomb})` : 'Bom Aman';
       if (minBomb <= 3) {
@@ -461,6 +464,7 @@ function updateModeHUD() {
       }
     } else {
       modeStatusPill.classList.add('hidden');
+      modeStatusPill.classList.remove('flex');
     }
   }
 }
@@ -676,13 +680,13 @@ function renderTray(animate = false) {
     const rows = piece.matrix.length;
     const cols = piece.matrix[0].length;
     const maxDim = Math.max(rows, cols);
-    const cellSize = maxDim >= 5 ? 14 : maxDim === 4 ? 17 : 20;
+    const cellSize = maxDim >= 5 ? 15 : maxDim === 4 ? 18 : 21;
 
     const pieceGrid = document.createElement('div');
     pieceGrid.style.display = 'grid';
     pieceGrid.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
     pieceGrid.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
-    pieceGrid.style.gap = '3px';
+    pieceGrid.style.gap = '2px';
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -1255,22 +1259,24 @@ function onBoardCellTapped(r, c) {
 function updateComboUI() {
   if (comboCount > 0) {
     comboCountEl.textContent = String(comboCount);
-    comboBadgeEl.classList.remove('opacity-0', 'scale-90');
-    comboBadgeEl.classList.add('opacity-100', 'scale-100');
+    comboBadgeEl.classList.remove('hidden');
+    comboBadgeEl.classList.add('flex');
 
-    streakDotsEl.classList.remove('opacity-0');
+    streakDotsEl.classList.remove('hidden');
+    streakDotsEl.classList.add('flex');
     const remainingGrace = MAX_COMBO_GRACE_MOVES - movesSinceLastClear;
     const dots = streakDotsEl.children;
     for (let i = 0; i < 3; i++) {
       dots[i].className =
         i < remainingGrace
-          ? 'w-2.5 h-2 rounded-full bg-amber-400 transition-all'
-          : 'w-2.5 h-2 rounded-full bg-slate-600/60 transition-all';
+          ? 'w-2 h-2 rounded-full bg-amber-400 transition-all'
+          : 'w-2 h-2 rounded-full bg-slate-600/60 transition-all';
     }
   } else {
-    comboBadgeEl.classList.add('opacity-0', 'scale-90');
-    comboBadgeEl.classList.remove('opacity-100', 'scale-100');
-    streakDotsEl.classList.add('opacity-0');
+    comboBadgeEl.classList.add('hidden');
+    comboBadgeEl.classList.remove('flex');
+    streakDotsEl.classList.add('hidden');
+    streakDotsEl.classList.remove('flex');
   }
 }
 
@@ -1457,6 +1463,13 @@ hammerBtn.addEventListener('click', () => {
   setHammerTargeting(!isHammerTargeting);
 });
 
+hammerBannerEl.addEventListener('click', () => {
+  if (!isHammerTargeting) return;
+  sfx.pickup();
+  haptics.pickup();
+  setHammerTargeting(false);
+});
+
 undoBtn.addEventListener('click', () => {
   if (isClearing || isGameOver || isLevelComplete || isPaused || undoCharges <= 0 || !undoSnapshot) {
     return;
@@ -1614,6 +1627,28 @@ document.getElementById('next-level-btn').addEventListener('click', () => {
 document.getElementById('level-clear-menu-btn').addEventListener('click', () => {
   sfx.pickup();
   showMainMenu();
+});
+
+// Tap backdrop outside modal card to dismiss Pause / Settings / Stats
+pauseModal.addEventListener('click', (e) => {
+  if (e.target === pauseModal) {
+    sfx.pickup();
+    resumeFromPause();
+  }
+});
+
+settingsModal.addEventListener('click', (e) => {
+  if (e.target === settingsModal) {
+    sfx.pickup();
+    setModalVisible(settingsModal, false);
+  }
+});
+
+statsModal.addEventListener('click', (e) => {
+  if (e.target === statsModal) {
+    sfx.pickup();
+    setModalVisible(statsModal, false);
+  }
 });
 
 function handleHardwareBack() {

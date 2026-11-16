@@ -64,18 +64,18 @@
     <!-- =========================================================
          SCREEN 2: GAMEPLAY
          ========================================================= -->
-    <section id="game-screen" class="hidden w-full h-full flex-col items-center justify-between md:justify-center md:gap-4 py-1.5 px-3 sm:py-4 z-10">
+    <section id="game-screen" class="hidden w-full h-full flex-col items-center justify-evenly md:justify-center gap-2 md:gap-4 py-1.5 px-3 sm:py-4 z-10">
 
         <!-- Top Header -->
-        <header class="w-full max-w-[420px] md:max-w-[760px] flex flex-col gap-1.5 z-10">
+        <header class="w-full max-w-[420px] md:max-w-[760px] flex flex-col gap-2 z-10">
             <div class="flex items-center justify-between gap-2 w-full">
-                <!-- Left: Pause + Best/Mode Pill -->
+                <!-- Left: Pause + Best/Stage Pill -->
                 <div class="flex items-center gap-2">
-                    <button id="pause-btn" type="button" aria-label="Menu Jeda" class="btn-3d theme-btn border text-white w-10 h-10 rounded-xl flex items-center justify-center text-base" title="Jeda / Menu">
+                    <button id="pause-btn" type="button" aria-label="Menu Jeda" class="btn-3d theme-btn border text-white w-10 h-10 rounded-xl flex items-center justify-center text-base shrink-0" title="Jeda / Menu">
                         <i class="fa-solid fa-pause"></i>
                     </button>
-                    <div class="theme-panel border rounded-2xl px-3 py-1 shadow-lg flex items-center gap-2">
-                        <i id="hud-pill-icon" class="fa-solid fa-crown text-amber-400 text-base"></i>
+                    <div class="theme-panel border rounded-2xl px-3 py-1 shadow-lg flex items-center gap-2 whitespace-nowrap">
+                        <i id="hud-pill-icon" class="fa-solid fa-crown text-amber-400 text-base shrink-0"></i>
                         <div class="flex flex-col">
                             <span id="hud-pill-label" class="text-[9px] uppercase tracking-wider text-amber-300/80 font-bold leading-none">Terbaik</span>
                             <span id="best-score-el" class="text-base sm:text-lg font-extrabold text-amber-400 leading-tight">0</span>
@@ -83,16 +83,8 @@
                     </div>
                 </div>
 
-                <!-- Center: Combo Pill -->
-                <div class="flex flex-col items-center">
-                    <div id="combo-badge" class="opacity-0 scale-90 transition-all duration-200 bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider shadow-md border border-white/30 flex items-center gap-1">
-                        <i class="fa-solid fa-fire-flame-curved text-white"></i>
-                        <span>Combo x<span id="combo-count">1</span></span>
-                    </div>
-                </div>
-
                 <!-- Right: Sound + Quick Restart -->
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 shrink-0">
                     <button id="sound-btn" type="button" aria-label="Suara On/Off" class="sound-toggle-btn btn-3d theme-btn border text-white w-10 h-10 rounded-xl flex items-center justify-center text-base" title="Suara On/Off">
                         <i class="sound-icon fa-solid fa-volume-high"></i>
                     </button>
@@ -102,50 +94,58 @@
                 </div>
             </div>
 
-            <!-- Current Score + Mode Status Bar -->
-            <div class="flex items-center justify-center gap-3 relative">
-                <div class="flex flex-col items-center">
-                    <div id="current-score-el" class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_3px_3px_rgba(0,0,0,0.45)] transition-transform duration-150 leading-none">
-                        0
-                    </div>
-                    <div id="streak-dots" class="flex items-center gap-1.5 mt-1 h-2 opacity-0 transition-opacity duration-200" title="Sisa langkah untuk menjaga Combo">
-                        <span class="w-2.5 h-2 rounded-full bg-amber-400"></span>
-                        <span class="w-2.5 h-2 rounded-full bg-amber-400"></span>
-                        <span class="w-2.5 h-2 rounded-full bg-amber-400"></span>
-                    </div>
+            <!-- Symmetrical Dead-Center Score + Unified Status Strip -->
+            <div class="flex flex-col items-center justify-center gap-1.5 w-full">
+                <div id="current-score-el" class="w-full text-center text-4xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_3px_3px_rgba(0,0,0,0.45)] transition-transform duration-150 leading-none">
+                    0
                 </div>
 
-                <!-- Dynamic Mode HUD Pill (Timer for Blitz, Target for Adventure, Bombs for Bomb) -->
-                <div id="mode-status-pill" class="hidden theme-panel border rounded-xl px-3 py-1 text-xs font-bold flex items-center gap-1.5 shadow">
-                    <i id="mode-status-icon" class="fa-solid fa-stopwatch text-amber-300"></i>
-                    <span id="mode-status-text">01:30</span>
+                <div class="min-h-[28px] flex items-center justify-center gap-2 flex-wrap w-full">
+                    <!-- Dynamic Mode HUD Pill (Timer for Blitz, Target for Adventure, Bombs for Bomb) -->
+                    <div id="mode-status-pill" class="hidden theme-panel border rounded-full px-3 py-1 text-xs font-bold items-center gap-1.5 shadow whitespace-nowrap">
+                        <i id="mode-status-icon" class="fa-solid fa-stopwatch text-amber-300"></i>
+                        <span id="mode-status-text">01:30</span>
+                    </div>
+
+                    <!-- Combo Badge -->
+                    <div id="combo-badge" class="hidden bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider shadow-md border border-white/30 items-center gap-1 whitespace-nowrap">
+                        <i class="fa-solid fa-fire-flame-curved text-white"></i>
+                        <span>Combo x<span id="combo-count">1</span></span>
+                    </div>
+
+                    <!-- Streak Decay Indicator -->
+                    <div id="streak-dots" class="hidden items-center gap-1" title="Sisa langkah untuk menjaga Combo">
+                        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                    </div>
                 </div>
             </div>
         </header>
 
         <!-- Responsive Play Area -->
-        <div class="w-full max-w-[420px] md:max-w-[760px] flex flex-col md:flex-row items-center justify-center gap-2.5 md:gap-7 my-auto md:my-0 z-10">
+        <div class="w-full max-w-[420px] md:max-w-[760px] flex flex-col md:flex-row items-center justify-center gap-3 md:gap-7 z-10">
 
             <!-- 8x8 Board Area -->
             <main class="relative flex items-center justify-center w-full md:w-auto">
-                <div id="board-container" class="w-full aspect-square max-h-[47dvh] max-w-[47dvh] sm:max-h-[410px] sm:max-w-[410px] md:w-[440px] md:h-[440px] md:max-w-none md:max-h-none mx-auto">
+                <div id="board-container" class="w-full aspect-square max-h-[49dvh] max-w-[49dvh] sm:max-h-[410px] sm:max-w-[410px] md:w-[440px] md:h-[440px] md:max-w-none md:max-h-none mx-auto">
                     <div id="board-grid" class="grid grid-cols-8 grid-rows-8 gap-[4px] sm:gap-[5px] w-full h-full">
                         <!-- 64 cells injected by JS -->
                     </div>
 
-                    <!-- Hammer mode instruction banner -->
-                    <div id="hammer-banner" class="hidden absolute -top-3 left-1/2 -translate-x-1/2 z-40 bg-amber-400 text-slate-950 text-[11px] font-extrabold px-3 py-1 rounded-full shadow-lg whitespace-nowrap border-2 border-white">
+                    <!-- Hammer mode instruction banner (tap to cancel) -->
+                    <button id="hammer-banner" type="button" class="hidden pointer-events-auto cursor-pointer absolute -top-3 left-1/2 -translate-x-1/2 z-40 bg-amber-400 text-slate-950 text-[11px] font-extrabold px-3 py-1 rounded-full shadow-lg whitespace-nowrap border-2 border-white">
                         <i class="fa-solid fa-hammer mr-1"></i>
-                        Ketuk area papan (3×3) atau Batal
-                    </div>
+                        Ketuk area papan (3×3) • Ketuk untuk Batal
+                    </button>
 
                     <!-- Floating text container -->
                     <div id="floating-ui" class="pointer-events-none absolute inset-0 overflow-visible z-30"></div>
                 </div>
             </main>
 
-            <!-- Boosters + 3-Piece Dock -->
-            <footer class="w-full md:w-[270px] md:h-[440px] flex flex-col md:justify-between gap-2 z-10">
+            <!-- Boosters + Open Borderless 3-Piece Tray -->
+            <footer class="w-full md:w-[270px] md:h-[440px] flex flex-col md:justify-between gap-2.5 z-10">
                 <!-- 4-Booster Bar -->
                 <div class="grid grid-cols-4 md:grid-cols-2 gap-1.5 md:gap-2 w-full">
                     <button id="reroll-btn" type="button" class="btn-3d whitespace-nowrap flex items-center justify-center gap-1 bg-gradient-to-b from-indigo-500 to-indigo-700 border border-indigo-300/40 px-2 py-1.5 rounded-xl text-[11px] font-bold disabled:opacity-40 disabled:pointer-events-none">
@@ -170,8 +170,8 @@
                     </button>
                 </div>
 
-                <!-- 3-Piece Dock -->
-                <div id="piece-dock" class="w-full h-24 sm:h-28 md:h-full md:flex-1 theme-panel border-2 rounded-2xl px-2 py-1.5 grid grid-cols-3 md:grid-cols-1 md:grid-rows-3 gap-2 items-center justify-items-center shadow-xl">
+                <!-- 3-Piece Open Floating Tray (No Card Wrapper) -->
+                <div id="piece-dock" class="w-full h-28 sm:h-32 md:h-full md:flex-1 bg-transparent border-0 shadow-none px-1 py-1 grid grid-cols-3 md:grid-cols-1 md:grid-rows-3 gap-2 items-center justify-items-center">
                     <div id="slot-0" class="tray-slot w-full h-full flex items-center justify-center cursor-grab" data-slot="0"></div>
                     <div id="slot-1" class="tray-slot w-full h-full flex items-center justify-center cursor-grab" data-slot="1"></div>
                     <div id="slot-2" class="tray-slot w-full h-full flex items-center justify-center cursor-grab" data-slot="2"></div>
