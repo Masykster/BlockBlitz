@@ -73,7 +73,7 @@ export class SoundFX {
       osc.start(now);
       osc.stop(now + duration);
     } catch {
-      // Fallback silently if audio context fails
+      // Fallback silently
     }
   }
 
@@ -86,8 +86,18 @@ export class SoundFX {
   }
 
   place() {
-    this.playTone(180, 'triangle', 0.09, 0.25, 290);
+    this.playTone(180, 'triangle', 0.09, 0.24, 290);
     setTimeout(() => this.playTone(390, 'sine', 0.06, 0.12), 25);
+  }
+
+  hammer() {
+    this.playTone(140, 'sawtooth', 0.18, 0.22, 65);
+    setTimeout(() => this.playTone(440, 'triangle', 0.12, 0.14, 260), 30);
+  }
+
+  defuse() {
+    this.playTone(620, 'sine', 0.09, 0.18, 880);
+    setTimeout(() => this.playTone(987.77, 'triangle', 0.14, 0.18), 55);
   }
 
   clear(linesCount, combo) {
@@ -108,7 +118,14 @@ export class SoundFX {
   allClear() {
     const fanfare = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98, 2093.0];
     fanfare.forEach((f, idx) => {
-      setTimeout(() => this.playTone(f, 'triangle', 0.28, 0.25), idx * 65);
+      setTimeout(() => this.playTone(f, 'triangle', 0.28, 0.24), idx * 65);
+    });
+  }
+
+  levelWin() {
+    const chord = [523.25, 659.25, 783.99, 1046.5, 1318.51];
+    chord.forEach((f, idx) => {
+      setTimeout(() => this.playTone(f, 'triangle', 0.24, 0.22), idx * 80);
     });
   }
 

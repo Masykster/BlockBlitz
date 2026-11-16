@@ -1,16 +1,27 @@
 # BlockBlitz — HTML5 Offline + Capacitor Android
 
-Versi aplikasi mobile offline dari **BlockBlitz** (dibangun dari `BlockBlitz.html`) menggunakan **Vite + Tailwind CSS v3 + aset lokal + Capacitor 8**. Seluruh font (`Fredoka`, `Inter`), ikon (`Font Awesome`), efek suara (Web Audio API), partikel, dan penyimpanan progres berjalan **100% offline** tanpa koneksi internet.
+Versi aplikasi mobile offline dari **BlockBlitz** (dibangun dari `BlockBlitz.html`) menggunakan **Vite + Tailwind CSS v3 + aset lokal + Capacitor 8**. Seluruh font (`Fredoka`, `Inter`), ikon (`Font Awesome`), efek suara (Web Audio API), partikel, tema warna, dan penyimpanan progres berjalan **100% offline** tanpa koneksi internet.
 
 ---
 
-## Fitur Utama Mobile Offline
-- **100% Offline Bundle**: Seluruh aset lokal terbundel di `dist/` dan diverifikasi oleh `npm run audit:offline`.
-- **Auto-Save Progres**: Papan 8×8, 3 balok tray, skor, combo streak, dan sisa booster otomatis tersimpan di `localStorage` saat bermain maupun saat aplikasi di-minimize.
-- **Haptic Feedback**: Getaran halus via `@capacitor/haptics` saat mengangkat balok, meletakkan balok, memecah baris/kolom, atau Game Over.
-- **Portrait Lock & Safe-Area**: Orientasi terkunci Portrait (`AndroidManifest.xml`), mendukung edge-to-edge Android 15/16 lewat `env(safe-area-inset-*)` dan Capacitor `SystemBars`.
-- **Tombol Back Android**: Double-tap tombol Back untuk keluar dengan toast konfirmasi *"Tekan sekali lagi untuk keluar"*.
-- **Custom App Icon & Splash Screen**: Dihasilkan dari SVG di `assets/` ke seluruh densitas `mipmap-*` dan `drawable*`.
+## Fitur Utama & Mode Permainan
+- **Main Menu & Lanjutkan per Mode**: Pilihan 4 mode dengan tombol *Lanjutkan* dan skor terbaik terpisah tiap mode:
+  1. **Klasik**: Mode endless 8×8 autentik.
+  2. **Bom Blast**: Muncul blok bom berpenghitung mundur yang harus dipecahkan sebelum menyentuh `0` (+50 bonus defuse).
+  3. **Time Blitz**: Balapan 90 detik dengan bonus `+3 detik × jumlah baris` tiap pembersihan garis (maks 120 detik).
+  4. **Petualangan**: Stage bertahap dengan papan rintangan awal dan target baris per level.
+- **4 Booster Taktis**: *Acak Balok*, *Putar*, *Palu 3×3* (hancurkan area 3×3 di papan), dan *Undo* (kembalikan 1 langkah terakhir).
+- **Pengaturan & Statistik Offline**: Toggle Suara, toggle Getaran Haptics, **3 Tema Warna** (*Biru Galaksi*, *Neon Gelap*, *Hutan Zamrud*), serta catatan statistik pemain.
+- **Fullscreen Status Bar & Performa Smooth**: Drag proxy murni GPU (`translate3d`), *immersive sticky* status bar Android, *safe-area* notch/punch-hole, dan tombol Back bertingkat (*Pause → Main Menu → Double-tap keluar*).
+
+---
+
+## Unduh APK Langsung (GitHub Releases)
+
+Setiap push ke branch `main` otomatis membangun APK terbaru dan menerbitkannya langsung ke halaman **Releases**:
+- 👉 **[https://github.com/Masykster/BlockBlitz/releases](https://github.com/Masykster/BlockBlitz/releases)**
+
+Unduh **`BlockBlitz-debug.apk`** langsung dari bagian *Assets* pada rilis `latest` dan instal di HP Android Anda (aktifkan *Izinkan instalasi dari sumber tidak dikenal* bila diminta).
 
 ---
 
@@ -20,7 +31,7 @@ Versi aplikasi mobile offline dari **BlockBlitz** (dibangun dari `BlockBlitz.htm
 # 1. Jalankan di browser lokal
 npm run dev
 
-# 2. Jalankan unit test logika game
+# 2. Jalankan unit test logika game & mode
 npm test
 
 # 3. Build bundle produksi offline + audit bebas CDN eksternal
@@ -38,52 +49,13 @@ npm run cap:assets
 
 ---
 
-## Build APK Otomatis via GitHub Actions (CI/CD)
+## CI/CD GitHub Actions & Rilis Versi
 
-Workflow siap pakai tersedia di `.github/workflows/build-android-apk.yml`.
-
-### 1. Inisialisasi Git Mandiri & Push ke GitHub
-> [!IMPORTANT]
-> Pastikan Anda menjalankan `git init` **di dalam folder `D:\Projek\Main\BlockBlastClone`** (bukan memakai `.git` dari folder induk `D:\Projek`) agar file `.github/workflows/build-android-apk.yml` berada di root repository GitHub Anda.
-
-```bash
-cd D:\Projek\Main\BlockBlastClone
-git init -b main
-git add .
-git commit -m "feat: initial BlockBlitz HTML5 + Capacitor Android project"
-git remote add origin https://github.com/Masykster/BlockBlitz.git
-git push -u origin main
-```
-
-### 2. Unduh APK dari GitHub Actions
-1. Buka tab **Actions** repository di [https://github.com/Masykster/BlockBlitz/actions](https://github.com/Masykster/BlockBlitz/actions).
-2. Workflow **Build BlockBlitz Android APK** otomatis berjalan setiap push ke `main`/`master`, tag `v*`, atau bisa dipicu manual lewat tombol **Run workflow**.
-3. Setelah status hijau, buka hasil run tersebut lalu unduh **Artifacts → `BlockBlitz-debug-apk`** (`BlockBlitz-debug.apk`).
-4. Salin `.apk` ke HP Android dan instal langsung (aktifkan *Izinkan instalasi dari sumber tidak dikenal* bila diminta).
-
-### 3. (Opsional) Signed Release APK & GitHub Releases
-Secara default CI selalu menghasilkan `BlockBlitz-debug.apk` yang siap instal tanpa perlu konfigurasi secret.
-
-Jika Anda ingin CI juga membangun **Signed Release APK (`BlockBlitz-release.apk`)**:
-1. Buat keystore Android:
-   ```bash
-   keytool -genkey -v -keystore blockblitz-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias blockblitz
-   ```
-2. Konversi file `.jks` ke Base64 dan tambahkan 4 **Repository Secrets** di **GitHub Settings → Secrets and variables → Actions**:
-   - `ANDROID_KEYSTORE_BASE64`
-   - `ANDROID_KEYSTORE_PASSWORD`
-   - `ANDROID_KEY_ALIAS`
-   - `ANDROID_KEY_PASSWORD`
-3. Untuk menerbitkan APK di halaman **GitHub Releases**, dorong tag versi:
-   ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
-
----
-
-## Alternatif: Build APK Lokal lewat Android Studio
-Jika ingin mem-build APK langsung di PC:
-1. Pasang **Android Studio** (Android SDK API 36 + JDK 21 bawaan Android Studio).
-2. Jalankan `npm run cap:sync` lalu `npm run cap:open`.
-3. Di Android Studio pilih **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
+Workflow [.github/workflows/build-android-apk.yml](.github/workflows/build-android-apk.yml):
+- Setiap push ke `main`/`master` otomatis menguji, membangun, dan memperbarui Release **`latest`** dengan `BlockBlitz-debug.apk`.
+- Untuk menerbitkan rilis versi permanen (misal `v1.0.0`):
+  ```bash
+  git tag v1.0.0
+  git push origin v1.0.0
+  ```
+- *(Opsional)* Jika ingin CI juga membangun **Signed Release APK (`BlockBlitz-release.apk`)**, tambahkan 4 **Repository Secrets** di GitHub (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`).

@@ -1,23 +1,29 @@
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 
-function isNative() {
-  return Capacitor.isNativePlatform();
+let hapticsEnabled = true;
+
+function canVibrate() {
+  return hapticsEnabled && Capacitor.isNativePlatform();
 }
 
 export const haptics = {
+  setEnabled(enabled) {
+    hapticsEnabled = Boolean(enabled);
+  },
+
   pickup() {
-    if (!isNative()) return;
+    if (!canVibrate()) return;
     Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
   },
 
   place() {
-    if (!isNative()) return;
+    if (!canVibrate()) return;
     Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
   },
 
   clear(linesCount = 1) {
-    if (!isNative()) return;
+    if (!canVibrate()) return;
     if (linesCount >= 2) {
       Haptics.notification({ type: NotificationType.Success }).catch(() => {});
     } else {
@@ -25,18 +31,28 @@ export const haptics = {
     }
   },
 
+  hammer() {
+    if (!canVibrate()) return;
+    Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+  },
+
+  levelWin() {
+    if (!canVibrate()) return;
+    Haptics.notification({ type: NotificationType.Success }).catch(() => {});
+  },
+
   allClear() {
-    if (!isNative()) return;
+    if (!canVibrate()) return;
     Haptics.notification({ type: NotificationType.Success }).catch(() => {});
   },
 
   invalid() {
-    if (!isNative()) return;
+    if (!canVibrate()) return;
     Haptics.notification({ type: NotificationType.Warning }).catch(() => {});
   },
 
   gameOver() {
-    if (!isNative()) return;
+    if (!canVibrate()) return;
     Haptics.notification({ type: NotificationType.Error }).catch(() => {});
   },
 };

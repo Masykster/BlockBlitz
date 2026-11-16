@@ -1,16 +1,17 @@
 export class ParticleSystem {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
+    this.ctx = canvas.getContext('2d', { alpha: true });
     this.particles = [];
     this.dpr = 1;
+    this.rafId = null;
     this.resize();
     this.tick = this.tick.bind(this);
-    requestAnimationFrame(this.tick);
   }
 
   resize() {
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Cap DPR at 1.5 to keep particle canvas fill-rate fast on high-DPI mobile screens
+    this.dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const width = window.innerWidth;
     const height = window.innerHeight;
     this.canvas.width = Math.floor(width * this.dpr);
@@ -20,25 +21,37 @@ export class ParticleSystem {
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   }
 
-  spawnCellParticles(rect, hexColor) {
+  spawnCellParticles(rect, hexColor, count = 6) {
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    const count = 9;
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = 2 + Math.random() * 6.5;
+      const speed = 2 + Math.random() * 5.8;
       this.particles.push({
         x: cx,
         y: cy,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 1.5,
-        size: 5 + Math.random() * 7,
+        vy: Math.sin(angle) * speed - 1.4,
+        size: 5 + Math.random() * 6,
         color: hexColor || '#ffd23f',
         alpha: 1,
         rotation: Math.random() * Math.PI,
-        vRot: (Math.random() - 0.5) * 0.25,
+        vRot: (Math.random() - 0.5) * 0.24,
       });
     }
+
+    if (this.rafId === null) {
+      this.rafId = requestAnimationFrame(this.tick);
+    }
+  }
+
+  clearAll() {
+    this.particles.length = 0;
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
   }
 
   tick() {
@@ -51,10 +64,10 @@ export class ParticleSystem {
       p.y += p.vy;
       p.vy += 0.28;
       p.rotation += p.vRot;
-      p.alpha -= 0.024;
-      p.size *= 0.97;
+      p.alpha -= 0.028;
+      p.size *= 0.965;
 
-      if (p.alpha <= 0 || p.size <= 0.5) {
+      if (p.alpha <= 0 || p.size <= 0.6) {
         this.particles.splice(i, 1);
         continue;
       }
@@ -64,16 +77,15 @@ export class ParticleSystem {
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rotation);
       ctx.fillStyle = p.color;
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(-p.size / 2, -p.size / 2, p.size, p.size, 3);
-      } else {
-        ctx.rect(-p.size / 2, -p.size / 2, p.size, p.size);
-      }
-      ctx.fill();
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
       ctx.restore();
     }
 
-    requestAnimationFrame(this.tick);
+    if (this.particles.length > 0) {
+      this.rafId = requestAnimationFrame(this.tick);
+    } else {
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      this.rafId = null;
+    }
   }
 }
