@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732" width="2732" height="2732">
+  <defs>
+    <radialGradient id="splashBgDark" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#25356c" />
+      <stop offset="55%" stop-color="#141b39" />
+      <stop offset="100%" stop-color="#0d1128" />
+    </radialGradient>
+    <linearGradient id="redJewel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff5e62" />
+      <stop offset="100%" stop-color="#e62229" />
+    </linearGradient>
+    <linearGradient id="yellowJewel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd23f" />
+      <stop offset="100%" stop-color="#e59b00" />
+    </linearGradient>
+    <linearGradient id="cyanJewel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#36d1dc" />
+      <stop offset="100%" stop-color="#1e88e5" />
+    </linearGradient>
+    <linearGradient id="greenJewel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#42e695" />
+      <stop offset="100%" stop-color="#1db954" />
+    </linearGradient>
+    <linearGradient id="purpleJewel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c471ed" />
+      <stop offset="100%" stop-color="#8a2be2" />
+    </linearGradient>
+    <linearGradient id="innerShine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.38" />
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.18" />
+    </linearGradient>
+  </defs>
+
+  <rect width="2732" height="2732" fill="url(#splashBgDark)" />
+
+  <g transform="translate(1016, 1016)">
+    <rect x="0" y="0" width="700" height="700" rx="112" fill="#121833" stroke="#3b4f96" stroke-width="18" />
+
+    <rect x="64" y="64" width="176" height="176" rx="28" fill="url(#redJewel)" />
+    <rect x="90" y="90" width="124" height="124" rx="16" fill="url(#innerShine)" />
+
+    <rect x="262" y="64" width="176" height="176" rx="28" fill="url(#redJewel)" />
+    <rect x="288" y="90" width="124" height="124" rx="16" fill="url(#innerShine)" />
+
+    <rect x="460" y="64" width="176" height="176" rx="28" fill="#1d264d" />
+    <path d="M548 106 L560 140 L594 152 L560 164 L548 198 L536 164 L502 152 L536 140 Z" fill="#ffd23f" />
+
+    <rect x="64" y="262" width="176" height="176" rx="28" fill="url(#redJewel)" />
+    <rect x="90" y="288" width="124" height="124" rx="16" fill="url(#innerShine)" />
+
+    <rect x="262" y="262" width="176" height="176" rx="28" fill="url(#yellowJewel)" />
+    <rect x="288" y="288" width="124" height="124" rx="16" fill="url(#innerShine)" />
+
+    <rect x="460" y="262" width="176" height="176" rx="28" fill="url(#cyanJewel)" />
+    <rect x="486" y="288" width="124" height="124" rx="16" fill="url(#innerShine)" />
+
+    <rect x="64" y="460" width="176" height="176" rx="28" fill="url(#purpleJewel)" />
+    <rect x="90" y="486" width="124" height="124" rx="16" fill="url(#innerShine)" />
+
+    <rect x="262" y="460" width="176" height="176" rx="28" fill="url(#greenJewel)" />
+    <rect x="288" y="486" width="124" height="124" rx="16" fill="url(#innerShine)" />
+
+    <rect x="460" y="460" width="176" height="176" rx="28" fill="url(#cyanJewel)" />
+    <rect x="486" y="486" width="124" height="124" rx="16" fill="url(#innerShine)" />
+  </g>
+</svg>

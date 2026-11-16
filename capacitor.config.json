@@ -1,0 +1,20 @@
+{
+  "appId": "com.blockblitz.app",
+  "appName": "BlockBlitz",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#111633",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 900,
+      "launchAutoHide": false,
+      "backgroundColor": "#111633",
+      "showSpinner": false
+    },
+    "SystemBars": {
+      "insetsHandling": "css"
+    }
+  }
+}

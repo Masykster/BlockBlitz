@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#111633">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>BlockBlitz</title>
+</head>
+<body class="flex flex-col items-center justify-between md:justify-center md:gap-5 py-3 px-3 sm:py-5 select-none">
+
+    <!-- Particle FX Canvas -->
+    <canvas id="fx-canvas"></canvas>
+
+    <!-- Top Header: Best Score, Current Score, Powerups & Controls -->
+    <header class="w-full max-w-[420px] md:max-w-[760px] flex flex-col md:flex-row md:items-center md:justify-between gap-2 z-10">
+        <div class="flex items-center justify-between w-full md:w-auto md:gap-6">
+            <!-- High Score -->
+            <div class="flex items-center gap-2.5 bg-[#161f42]/90 border border-[#344687] rounded-2xl px-3.5 py-1.5 shadow-lg">
+                <i class="fa-solid fa-crown text-amber-400 text-lg drop-shadow" title="Skor Tertinggi"></i>
+                <div class="flex flex-col">
+                    <span class="text-[10px] uppercase tracking-wider text-amber-300/80 font-bold leading-none">Terbaik</span>
+                    <span id="best-score-el" class="text-lg sm:text-xl font-extrabold text-amber-400 leading-tight">0</span>
+                </div>
+            </div>
+
+            <!-- Combo Pill (Mobile Center) -->
+            <div class="flex flex-col items-center">
+                <div id="combo-badge" class="opacity-0 scale-90 transition-all duration-300 bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-md border border-white/30 flex items-center gap-1.5">
+                    <i class="fa-solid fa-fire-flame-curved text-white"></i>
+                    <span>Combo x<span id="combo-count">1</span></span>
+                </div>
+            </div>
+
+            <!-- Action Controls (Mobile Right) -->
+            <div class="flex md:hidden items-center gap-2">
+                <button id="sound-btn-mobile" type="button" aria-label="Suara On/Off" class="sound-toggle-btn btn-3d bg-[#253366] hover:bg-[#2f4080] border border-[#4257a6] text-white w-10 h-10 rounded-xl flex items-center justify-center text-base" title="Suara On/Off">
+                    <i class="sound-icon fa-solid fa-volume-high"></i>
+                </button>
+                <button id="restart-btn-mobile" type="button" aria-label="Mulai Ulang" class="restart-trigger-btn btn-3d bg-[#253366] hover:bg-[#2f4080] border border-[#4257a6] text-white w-10 h-10 rounded-xl flex items-center justify-center text-base" title="Mulai Ulang">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Current Score & Combo Heart Bar -->
+        <div class="flex flex-col items-center justify-center my-0.5 relative">
+            <div id="current-score-el" class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] transition-transform duration-150">
+                0
+            </div>
+            <!-- Streak Decay Indicator (3 turns to keep combo alive) -->
+            <div id="streak-dots" class="flex items-center gap-1.5 mt-1 h-2 opacity-0 transition-opacity duration-300" title="Sisa langkah untuk menjaga Combo">
+                <span class="w-2.5 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]"></span>
+                <span class="w-2.5 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]"></span>
+                <span class="w-2.5 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]"></span>
+            </div>
+        </div>
+
+        <!-- Action Controls (Desktop Right) -->
+        <div class="hidden md:flex items-center gap-2.5">
+            <button id="sound-btn" type="button" aria-label="Suara On/Off" class="sound-toggle-btn btn-3d bg-[#253366] hover:bg-[#2f4080] border border-[#4257a6] text-white w-11 h-11 rounded-xl flex items-center justify-center text-lg" title="Suara On/Off">
+                <i class="sound-icon fa-solid fa-volume-high"></i>
+            </button>
+            <button id="restart-btn" type="button" aria-label="Mulai Ulang" class="restart-trigger-btn btn-3d bg-[#253366] hover:bg-[#2f4080] border border-[#4257a6] text-white w-11 h-11 rounded-xl flex items-center justify-center text-lg" title="Mulai Ulang">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Responsive Play Area: Vertical on Mobile (Board Top, Dock Bottom), Horizontal on Desktop (Board Left, Dock Right) -->
+    <div class="w-full max-w-[420px] md:max-w-[760px] flex flex-col md:flex-row items-center justify-center gap-3 md:gap-7 my-auto md:my-0 z-10">
+
+        <!-- Center/Left 8x8 Board Area -->
+        <main class="relative flex items-center justify-center w-full md:w-auto">
+            <div id="board-container" class="w-full aspect-square max-h-[50dvh] max-w-[50dvh] sm:max-h-[420px] sm:max-w-[420px] md:w-[440px] md:h-[440px] md:max-w-none md:max-h-none mx-auto">
+                <div id="board-grid" class="grid grid-cols-8 grid-rows-8 gap-[4px] sm:gap-[5px] w-full h-full">
+                    <!-- 64 cells injected by JS -->
+                </div>
+
+                <!-- Floating text container over the board -->
+                <div id="floating-ui" class="pointer-events-none absolute inset-0 overflow-visible z-30"></div>
+            </div>
+        </main>
+
+        <!-- Bottom Tray (Mobile) / Right Panel (Desktop) + Mini Boosters -->
+        <footer class="w-full md:w-[270px] md:h-[440px] flex flex-col md:justify-between gap-2.5 z-10 pb-1 md:pb-0">
+            <!-- Helpful Boosters Bar (Earned through combos!) -->
+            <div class="flex md:flex-col items-center md:items-stretch justify-between gap-2 px-1 md:px-0">
+                <div class="text-xs text-blue-200/75 font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-hand-pointer text-blue-300/80"></i>
+                    <span>Seret balok ke papan 8×8</span>
+                </div>
+                <div class="flex items-center gap-2 w-auto md:w-full shrink-0">
+                    <button id="reroll-btn" type="button" class="btn-3d flex-1 whitespace-nowrap flex items-center justify-center gap-1.5 bg-gradient-to-b from-indigo-500 to-indigo-700 border border-indigo-300/40 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold disabled:opacity-40 disabled:pointer-events-none">
+                        <i class="fa-solid fa-dice text-indigo-100"></i>
+                        <span>Acak Balok</span>
+                        <span id="reroll-count" class="bg-black/30 px-1.5 py-0.5 rounded-md text-[11px] text-amber-300">2</span>
+                    </button>
+                    <button id="rotate-btn" type="button" class="btn-3d flex-1 whitespace-nowrap flex items-center justify-center gap-1.5 bg-gradient-to-b from-emerald-500 to-emerald-700 border border-emerald-300/40 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold disabled:opacity-40 disabled:pointer-events-none">
+                        <i class="fa-solid fa-rotate text-emerald-100"></i>
+                        <span>Putar</span>
+                        <span id="rotate-count" class="bg-black/30 px-1.5 py-0.5 rounded-md text-[11px] text-amber-300">2</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3-Piece Dock: 3 Columns on Mobile, 3 Vertical Rows on Desktop -->
+            <div id="piece-dock" class="w-full h-28 sm:h-32 md:h-full md:flex-1 bg-[#141c3d]/90 border-2 border-[#2a3975] rounded-2xl px-2 py-2 grid grid-cols-3 md:grid-cols-1 md:grid-rows-3 gap-2 items-center justify-items-center shadow-xl">
+                <div id="slot-0" class="tray-slot w-full h-full flex items-center justify-center cursor-grab" data-slot="0"></div>
+                <div id="slot-1" class="tray-slot w-full h-full flex items-center justify-center cursor-grab" data-slot="1"></div>
+                <div id="slot-2" class="tray-slot w-full h-full flex items-center justify-center cursor-grab" data-slot="2"></div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Floating Drag Proxy Element -->
+    <div id="drag-proxy"></div>
+
+    <!-- Android Back Confirmation Toast -->
+    <div id="exit-toast" role="status" aria-live="polite" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] pointer-events-none opacity-0 translate-y-2 transition-all duration-200 bg-[#0d132b]/95 border border-[#4257a6] text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-xl whitespace-nowrap">
+        Tekan sekali lagi untuk keluar
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-gradient-to-b from-[#28366e] to-[#172045] border-4 border-[#485fb5] rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl transform transition-all scale-100">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-rose-500/20 border-2 border-rose-400/40 flex items-center justify-center text-rose-400 text-3xl shadow-lg">
+                <i class="fa-solid fa-burst"></i>
+            </div>
+            <h2 class="text-3xl font-extrabold text-white tracking-wide drop-shadow">TIDAK ADA RUANG!</h2>
+            <p class="text-sm text-blue-200/80 mt-1 mb-5">Tidak ada lagi balok yang muat di papan.</p>
+
+            <div class="bg-[#111836] border border-[#2f4185] rounded-2xl p-4 mb-5 flex flex-col gap-3">
+                <div>
+                    <div class="text-xs uppercase tracking-widest text-blue-300/70 font-bold">Skor Akhir</div>
+                    <div id="modal-score" class="text-4xl font-extrabold text-white mt-0.5">0</div>
+                </div>
+                <div class="h-px bg-[#25346e] w-full"></div>
+                <div class="flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-crown text-amber-400 text-base"></i>
+                    <span class="text-xs uppercase tracking-wider text-amber-300/80 font-bold">Rekor Terbaik:</span>
+                    <span id="modal-best" class="text-lg font-extrabold text-amber-400">0</span>
+                    <span id="new-record-badge" class="hidden bg-amber-400 text-black text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Baru!</span>
+                </div>
+            </div>
+
+            <button id="play-again-btn" type="button" class="btn-3d w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500 text-white font-extrabold text-lg tracking-wide border border-white/30 flex items-center justify-center gap-2">
+                <span>MAIN LAGI</span>
+                <i class="fa-solid fa-play text-sm"></i>
+            </button>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

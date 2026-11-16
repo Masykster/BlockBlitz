@@ -1,0 +1,19 @@
+# Dependencies & build output
+node_modules/
+dist/
+
+# Logs & OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Android local / generated Gradle outputs (android/ native project itself is tracked for CI/CD)
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+android/local.properties
+android/app/release/*.apk
+android/app/release/*.aab
+*.keystore
+*.jks

@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="redJewel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff5e62" />
+      <stop offset="100%" stop-color="#e62229" />
+    </linearGradient>
+    <linearGradient id="yellowJewel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd23f" />
+      <stop offset="100%" stop-color="#e59b00" />
+    </linearGradient>
+    <linearGradient id="cyanJewel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#36d1dc" />
+      <stop offset="100%" stop-color="#1e88e5" />
+    </linearGradient>
+    <linearGradient id="greenJewel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#42e695" />
+      <stop offset="100%" stop-color="#1db954" />
+    </linearGradient>
+    <linearGradient id="purpleJewel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c471ed" />
+      <stop offset="100%" stop-color="#8a2be2" />
+    </linearGradient>
+    <linearGradient id="innerShine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.38" />
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.18" />
+    </linearGradient>
+    <filter id="dropShadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#070a1a" flood-opacity="0.65" />
+    </filter>
+  </defs>
+
+  <!-- Safe-zone centered 3x3 jewel block composition (x: 242..782, y: 242..782) -->
+  <g filter="url(#dropShadow)">
+    <!-- Board backing plate -->
+    <rect x="234" y="234" width="556" height="556" rx="54" fill="#121833" stroke="#3b4f96" stroke-width="14" />
+
+    <!-- Row 0 -->
+    <!-- (0,0) Red -->
+    <rect x="272" y="272" width="148" height="148" rx="24" fill="url(#redJewel)" />
+    <rect x="294" y="294" width="104" height="104" rx="14" fill="url(#innerShine)" />
+
+    <!-- (0,1) Red -->
+    <rect x="438" y="272" width="148" height="148" rx="24" fill="url(#redJewel)" />
+    <rect x="460" y="294" width="104" height="104" rx="14" fill="url(#innerShine)" />
+
+    <!-- (0,2) Empty recessed cell -->
+    <rect x="604" y="272" width="148" height="148" rx="24" fill="#1d264d" />
+
+    <!-- Row 1 -->
+    <!-- (1,0) Red L-piece stem -->
+    <rect x="272" y="438" width="148" height="148" rx="24" fill="url(#redJewel)" />
+    <rect x="294" y="460" width="104" height="104" rx="14" fill="url(#innerShine)" />
+
+    <!-- (1,1) Yellow -->
+    <rect x="438" y="438" width="148" height="148" rx="24" fill="url(#yellowJewel)" />
+    <rect x="460" y="460" width="104" height="104" rx="14" fill="url(#innerShine)" />
+
+    <!-- (1,2) Cyan -->
+    <rect x="604" y="438" width="148" height="148" rx="24" fill="url(#cyanJewel)" />
+    <rect x="626" y="460" width="104" height="104" rx="14" fill="url(#innerShine)" />
+
+    <!-- Row 2 -->
+    <!-- (2,0) Purple -->
+    <rect x="272" y="604" width="148" height="148" rx="24" fill="url(#purpleJewel)" />
+    <rect x="294" y="626" width="104" height="104" rx="14" fill="url(#innerShine)" />
+
+    <!-- (2,1) Green -->
+    <rect x="438" y="604" width="148" height="148" rx="24" fill="url(#greenJewel)" />
+    <rect x="460" y="626" width="104" height="104" rx="14" fill="url(#innerShine)" />
+
+    <!-- (2,2) Cyan -->
+    <rect x="604" y="604" width="148" height="148" rx="24" fill="url(#cyanJewel)" />
+    <rect x="626" y="626" width="104" height="104" rx="14" fill="url(#innerShine)" />
+
+    <!-- Sparkle star in empty top-right cell -->
+    <path d="M678 308 L688 336 L716 346 L688 356 L678 384 L668 356 L640 346 L668 336 Z" fill="#ffd23f" />
+  </g>
+</svg>

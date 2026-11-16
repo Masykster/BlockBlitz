@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Block Blast! Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700;800&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-top: #263366;
+            --bg-bottom: #151c3b;
+            --board-bg: #121833;
+            --cell-empty: #1d264d;
+            --cell-border: #151c3b;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Fredoka', 'Inter', sans-serif;
+            background: radial-gradient(circle at 50% 15%, #34478c 0%, #1b244d 55%, #111633 100%);
+            color: #ffffff;
+            overflow: hidden;
+            height: 100dvh;
+            width: 100vw;
+            touch-action: none;
+        }
+
+        /* 3D Glossy Jewel Block Styling */
+        .jewel-block {
+            position: relative;
+            border-radius: 6px;
+            box-shadow:
+                inset 0 3px 2px rgba(255, 255, 255, 0.45),
+                inset 0 -3px 3px rgba(0, 0, 0, 0.35),
+                inset 3px 0 2px rgba(255, 255, 255, 0.2),
+                inset -3px 0 2px rgba(0, 0, 0, 0.25),
+                0 2px 4px rgba(0, 0, 0, 0.35);
+            transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .jewel-block::after {
+            content: '';
+            position: absolute;
+            top: 14%;
+            left: 14%;
+            right: 14%;
+            bottom: 14%;
+            border-radius: 3px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 60%, rgba(0,0,0,0.12) 100%);
+            pointer-events: none;
+        }
+
+        /* Color Themes for Blocks */
+        .color-red { background: linear-gradient(145deg, #ff5e62, #e62229); }
+        .color-orange { background: linear-gradient(145deg, #ff9933, #e65c00); }
+        .color-yellow { background: linear-gradient(145deg, #ffd23f, #e59b00); }
+        .color-green { background: linear-gradient(145deg, #42e695, #1db954); }
+        .color-cyan { background: linear-gradient(145deg, #38ef7d, #11998e); background: linear-gradient(145deg, #36d1dc, #1e88e5); }
+        .color-blue { background: linear-gradient(145deg, #5b86e5, #2b4cb8); }
+        .color-purple { background: linear-gradient(145deg, #c471ed, #8a2be2); }
+        .color-pink { background: linear-gradient(145deg, #ff758c, #e81cff); }
+
+        /* Board Grid & Cells */
+        #board-container {
+            background: var(--board-bg);
+            border: 4px solid #303f78;
+            box-shadow:
+                0 12px 30px rgba(0, 0, 0, 0.55),
+                inset 0 2px 8px rgba(0, 0, 0, 0.7);
+            border-radius: 16px;
+            padding: 8px;
+            position: relative;
+            aspect-ratio: 1 / 1;
+        }
+
+        #board-grid {
+            display: grid;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
+            grid-template-rows: repeat(8, minmax(0, 1fr));
+            width: 100%;
+            height: 100%;
+            aspect-ratio: 1 / 1;
+        }
+
+        .grid-cell {
+            background-color: var(--cell-empty);
+            border-radius: 6px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+            position: relative;
+            transition: background-color 0.1s ease, transform 0.15s ease;
+        }
+
+        /* Highlight when a line is about to be cleared */
+        .will-clear {
+            animation: pulseClear 0.5s infinite alternate;
+            z-index: 5;
+        }
+
+        @keyframes pulseClear {
+            0% {
+                filter: brightness(1.15) saturate(1.2);
+                transform: scale(0.96);
+                box-shadow: 0 0 10px rgba(255, 255, 255, 0.6), inset 0 0 8px rgba(255, 255, 255, 0.8);
+            }
+            100% {
+                filter: brightness(1.5) saturate(1.4);
+                transform: scale(1.03);
+                box-shadow: 0 0 16px rgba(255, 255, 255, 0.95), inset 0 0 12px rgba(255, 255, 255, 1);
+            }
+        }
+
+        /* Ghost preview cells */
+        .ghost-preview {
+            opacity: 0.48;
+            transform: scale(0.94);
+        }
+
+        /* Clearing animation */
+        .clearing-cell {
+            animation: popOut 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes popOut {
+            0% { transform: scale(1.1); filter: brightness(2); opacity: 1; }
+            50% { transform: scale(1.22); filter: brightness(2.5); opacity: 0.8; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        /* Placed bounce animation */
+        .just-placed {
+            animation: placeBounce 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes placeBounce {
+            0% { transform: scale(0.75); }
+            70% { transform: scale(1.06); }
+            100% { transform: scale(1); }
+        }
+
+        /* Board shake on big combos */
+        .shake-board {
+            animation: boardShake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+        }
+
+        @keyframes boardShake {
+            10%, 90% { transform: translate3d(-2px, 1px, 0); }
+            20%, 80% { transform: translate3d(4px, -2px, 0); }
+            30%, 50%, 70% { transform: translate3d(-5px, 2px, 0); }
+            40%, 60% { transform: translate3d(5px, -1px, 0); }
+        }
+
+        /* Floating Banner & Popups */
+        .combo-banner {
+            animation: bannerPop 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            text-shadow: 0 4px 0 rgba(0,0,0,0.45), 0 0 20px rgba(255,200,0,0.6);
+            -webkit-text-stroke: 1.5px rgba(0, 0, 0, 0.35);
+        }
+
+        @keyframes bannerPop {
+            0% { transform: translate(-50%, -50%) scale(0.3) rotate(-8deg); opacity: 0; }
+            25% { transform: translate(-50%, -50%) scale(1.18) rotate(3deg); opacity: 1; }
+            45% { transform: translate(-50%, -50%) scale(1.0) rotate(0deg); opacity: 1; }
+            80% { transform: translate(-50%, -65%) scale(1.02); opacity: 1; }
+            100% { transform: translate(-50%, -95%) scale(0.85); opacity: 0; }
+        }
+
+        .score-float {
+            animation: floatUp 0.95s ease-out forwards;
+            text-shadow: 0 3px 6px rgba(0,0,0,0.6);
+        }
+
+        @keyframes floatUp {
+            0% { transform: translate(-50%, 0) scale(0.7); opacity: 0; }
+            20% { transform: translate(-50%, -12px) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, -52px) scale(0.95); opacity: 0; }
+        }
+
+        /* Dock / Piece Tray */
+        .tray-slot {
+            transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            touch-action: none;
+        }
+        .tray-slot:active {
+            cursor: grabbing;
+        }
+        .tray-slot.unplaceable {
+            opacity: 0.35;
+            filter: grayscale(0.5);
+        }
+        .tray-slot.spawn-anim {
+            animation: spawnSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes spawnSlideIn {
+            0% { transform: scale(0.2) translateY(40px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        /* Dragging Clone */
+        #drag-proxy {
+            position: fixed;
+            pointer-events: none;
+            z-index: 999;
+            display: none;
+            transform-origin: center center;
+            filter: drop-shadow(0 16px 20px rgba(0,0,0,0.55));
+        }
+
+        /* Particle Canvas */
+        #fx-canvas {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Button 3D Press Effect */
+        .btn-3d {
+            transition: all 0.12s ease;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.35), 0 8px 16px rgba(0,0,0,0.3);
+        }
+        .btn-3d:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 rgba(0,0,0,0.35), 0 4px 8px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-between md:justify-center md:gap-5 py-3 px-3 sm:py-5 select-none">
+
+    <!-- Particle FX Canvas -->
+    <canvas id="fx-canvas"></canvas>
+
+    <!-- Top Header: Best Score, Current Score, Powerups & Controls -->
+    <header class="w-full max-w-[420px] md:max-w-[760px] flex flex-col md:flex-row md:items-center md:justify-between gap-2 z-10">
+        <div class="flex items-center justify-between w-full md:w-auto md:gap-6">
+            <!-- High Score -->
+            <div class="flex items-center gap-2.5 bg-[#161f42]/90 border border-[#344687] rounded-2xl px-3.5 py-1.5 shadow-lg">
+                <i class="fa-solid fa-crown text-amber-400 text-lg drop-shadow" title="Skor Tertinggi"></i>
+                <div class="flex flex-col">
+                    <span class="text-[10px] uppercase tracking-wider text-amber-300/80 font-bold leading-none">Terbaik</span>
+                    <span id="best-score-el" class="text-lg sm:text-xl font-extrabold text-amber-400 leading-tight">0</span>
+                </div>
+            </div>
+
+            <!-- Brand Title / Combo Pill (Mobile Center) -->
+            <div class="flex flex-col items-center">
+                <div id="combo-badge" class="opacity-0 scale-90 transition-all duration-300 bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-md border border-white/30 flex items-center gap-1.5">
+                    <i class="fa-solid fa-fire-flame-curved text-white"></i>
+                    <span>Combo x<span id="combo-count">1</span></span>
+                </div>
+            </div>
+
+            <!-- Action Controls (Mobile Right) -->
+            <div class="flex md:hidden items-center gap-2">
+                <button id="sound-btn-mobile" class="sound-toggle-btn btn-3d bg-[#253366] hover:bg-[#2f4080] border border-[#4257a6] text-white w-10 h-10 rounded-xl flex items-center justify-center text-base" title="Suara On/Off">
+                    <i class="sound-icon fa-solid fa-volume-high"></i>
+                </button>
+                <button id="restart-btn-mobile" class="restart-trigger-btn btn-3d bg-[#253366] hover:bg-[#2f4080] border border-[#4257a6] text-white w-10 h-10 rounded-xl flex items-center justify-center text-base" title="Mulai Ulang">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Current Score & Combo Heart Bar -->
+        <div class="flex flex-col items-center justify-center my-0.5 relative">
+            <div id="current-score-el" class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] transition-transform duration-150">
+                0
+            </div>
+            <!-- Streak Decay Indicator (3 turns to keep combo alive) -->
+            <div id="streak-dots" class="flex items-center gap-1.5 mt-1 h-2 opacity-0 transition-opacity duration-300" title="Sisa langkah untuk menjaga Combo">
+                <span class="w-2.5 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]"></span>
+                <span class="w-2.5 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]"></span>
+                <span class="w-2.5 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]"></span>
+            </div>
+        </div>
+
+        <!-- Action Controls (Desktop Right) -->
+        <div class="hidden md:flex items-center gap-2.5">
+            <button id="sound-btn" class="sound-toggle-btn btn-3d bg-[#253366] hover:bg-[#2f4080] border border-[#4257a6] text-white w-11 h-11 rounded-xl flex items-center justify-center text-lg" title="Suara On/Off">
+                <i class="sound-icon fa-solid fa-volume-high"></i>
+            </button>
+            <button id="restart-btn" class="restart-trigger-btn btn-3d bg-[#253366] hover:bg-[#2f4080] border border-[#4257a6] text-white w-11 h-11 rounded-xl flex items-center justify-center text-lg" title="Mulai Ulang">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Responsive Play Area: Vertical on Mobile (Board Top, Dock Bottom), Horizontal on Desktop (Board Left, Dock Right) -->
+    <div class="w-full max-w-[420px] md:max-w-[760px] flex flex-col md:flex-row items-center justify-center gap-3 md:gap-7 my-auto md:my-0 z-10">
+
+        <!-- Center/Left 8x8 Board Area -->
+        <main class="relative flex items-center justify-center w-full md:w-auto">
+            <div id="board-container" class="w-full aspect-square max-h-[50dvh] max-w-[50dvh] sm:max-h-[420px] sm:max-w-[420px] md:w-[440px] md:h-[440px] md:max-w-none md:max-h-none mx-auto">
+                <div id="board-grid" class="grid grid-cols-8 grid-rows-8 gap-[4px] sm:gap-[5px] w-full h-full">
+                    <!-- 64 cells injected by JS -->
+                </div>
+
+                <!-- Floating text container over the board -->
+                <div id="floating-ui" class="pointer-events-none absolute inset-0 overflow-visible z-30"></div>
+            </div>
+        </main>
+
+        <!-- Bottom Tray (Mobile) / Right Panel (Desktop) + Mini Boosters -->
+        <footer class="w-full md:w-[270px] md:h-[440px] flex flex-col md:justify-between gap-2.5 z-10 pb-1 md:pb-0">
+            <!-- Helpful Boosters Bar (Earned through combos!) -->
+            <div class="flex md:flex-col items-center md:items-stretch justify-between gap-2 px-1 md:px-0">
+                <div class="text-xs text-blue-200/75 font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-hand-pointer text-blue-300/80"></i>
+                    <span>Seret balok ke papan 8×8</span>
+                </div>
+                <div class="flex items-center gap-2 w-auto md:w-full">
+                    <button id="reroll-btn" class="btn-3d flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-b from-indigo-500 to-indigo-700 border border-indigo-300/40 px-3 py-1.5 rounded-xl text-xs font-bold disabled:opacity-40 disabled:pointer-events-none">
+                        <i class="fa-solid fa-dice text-indigo-100"></i>
+                        <span>Acak Balok</span>
+                        <span id="reroll-count" class="bg-black/30 px-1.5 py-0.5 rounded-md text-[11px] text-amber-300">2</span>
+                    </button>
+                    <button id="rotate-btn" class="btn-3d flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-b from-emerald-500 to-emerald-700 border border-emerald-300/40 px-3 py-1.5 rounded-xl text-xs font-bold disabled:opacity-40 disabled:pointer-events-none">
+                        <i class="fa-solid fa-rotate text-emerald-100"></i>
+                        <span>Putar</span>
+                        <span id="rotate-count" class="bg-black/30 px-1.5 py-0.5 rounded-md text-[11px] text-amber-300">2</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3-Piece Dock: 3 Columns on Mobile, 3 Vertical Rows on Desktop -->
+            <div id="piece-dock" class="w-full h-28 sm:h-32 md:h-full md:flex-1 bg-[#141c3d]/90 border-2 border-[#2a3975] rounded-2xl px-2 py-2 grid grid-cols-3 md:grid-cols-1 md:grid-rows-3 gap-2 items-center justify-items-center shadow-xl">
+                <div id="slot-0" class="tray-slot w-full h-full flex items-center justify-center cursor-grab" data-slot="0"></div>
+                <div id="slot-1" class="tray-slot w-full h-full flex items-center justify-center cursor-grab" data-slot="1"></div>
+                <div id="slot-2" class="tray-slot w-full h-full flex items-center justify-center cursor-grab" data-slot="2"></div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Floating Drag Proxy Element -->
+    <div id="drag-proxy"></div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-gradient-to-b from-[#28366e] to-[#172045] border-4 border-[#485fb5] rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl transform transition-all scale-100">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-rose-500/20 border-2 border-rose-400/40 flex items-center justify-center text-rose-400 text-3xl shadow-lg">
+                <i class="fa-solid fa-burst"></i>
+            </div>
+            <h2 class="text-3xl font-extrabold text-white tracking-wide drop-shadow">TIDAK ADA RUANG!</h2>
+            <p class="text-sm text-blue-200/80 mt-1 mb-5">Tidak ada lagi balok yang muat di papan.</p>
+
+            <div class="bg-[#111836] border border-[#2f4185] rounded-2xl p-4 mb-5 flex flex-col gap-3">
+                <div>
+                    <div class="text-xs uppercase tracking-widest text-blue-300/70 font-bold">Skor Akhir</div>
+                    <div id="modal-score" class="text-4xl font-extrabold text-white mt-0.5">0</div>
+                </div>
+                <div class="h-px bg-[#25346e] w-full"></div>
+                <div class="flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-crown text-amber-400 text-base"></i>
+                    <span class="text-xs uppercase tracking-wider text-amber-300/80 font-bold">Rekor Terbaik:</span>
+                    <span id="modal-best" class="text-lg font-extrabold text-amber-400">0</span>
+                    <span id="new-record-badge" class="hidden bg-amber-400 text-black text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Baru!</span>
+                </div>
+            </div>
+
+            <button id="play-again-btn" class="btn-3d w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500 text-white font-extrabold text-lg tracking-wide border border-white/30 flex items-center justify-center gap-2">
+                <span>MAIN LAGI</span>
+                <i class="fa-solid fa-play text-sm"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**************************************************************
+         * 0. SAFE STORAGE HELPERS (Fixes Blank Screen in Sandboxed Viewers)
+         **************************************************************/
+        let memoryBestScore = 0;
+
+        function safeGetBestScore() {
+            try {
+                const stored = window.localStorage.getItem('blockblast_best_score');
+                const parsed = parseInt(stored || '0', 10);
+                return isNaN(parsed) ? memoryBestScore : parsed;
+            } catch (e) {
+                return memoryBestScore;
+            }
+        }
+
+        function safeSetBestScore(val) {
+            memoryBestScore = val;
+            try {
+                window.localStorage.setItem('blockblast_best_score', String(val));
+            } catch (e) {
+                // Ignore SecurityError in sandboxed iframes (e.g., OnlineViewer.net)
+            }
+        }
+
+        /**************************************************************
+         * 1. WEB AUDIO SYNTHESIZER (Zero External Assets Needed)
+         **************************************************************/
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                try {
+                    if (!this.ctx) {
+                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        if (AudioCtx) this.ctx = new AudioCtx();
+                    }
+                    if (this.ctx && this.ctx.state === 'suspended') {
+                        this.ctx.resume();
+                    }
+                } catch (e) {
+                    // Ignore audio restriction errors in sandboxed iframes
+                }
+            }
+
+            playTone(freq, type = 'sine', duration = 0.12, vol = 0.18, slideFreq = null) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, now);
+                    if (slideFreq) {
+                        osc.frequency.exponentialRampToValueAtTime(slideFreq, now + duration);
+                    }
+
+                    gain.gain.setValueAtTime(vol, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + duration);
+                } catch (e) {
+                    // Fallback silently if audio context fails
+                }
+            }
+
+            pickup() {
+                this.playTone(320, 'sine', 0.08, 0.15, 480);
+            }
+
+            invalid() {
+                this.playTone(210, 'triangle', 0.14, 0.15, 140);
+            }
+
+            place() {
+                this.playTone(180, 'triangle', 0.09, 0.25, 290);
+                setTimeout(() => this.playTone(390, 'sine', 0.06, 0.12), 25);
+            }
+
+            clear(linesCount, combo) {
+                if (!this.enabled) return;
+                this.init();
+                const baseNotes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98]; // C5 Major Pentatonic/Arp
+                const pitchBoost = Math.min(combo * 45, 350);
+                const count = Math.min(linesCount + 2, 6);
+
+                for (let i = 0; i < count; i++) {
+                    setTimeout(() => {
+                        const freq = baseNotes[i % baseNotes.length] + pitchBoost;
+                        this.playTone(freq, 'triangle', 0.22, 0.22, freq * 1.04);
+                    }, i * 55);
+                }
+            }
+
+            allClear() {
+                const fanfare = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98, 2093.0];
+                fanfare.forEach((f, idx) => {
+                    setTimeout(() => this.playTone(f, 'triangle', 0.28, 0.25), idx * 65);
+                });
+            }
+
+            gameOver() {
+                const notes = [392, 349.23, 329.63, 261.63];
+                notes.forEach((f, idx) => {
+                    setTimeout(() => this.playTone(f, 'sawtooth', 0.28, 0.12, f * 0.92), idx * 140);
+                });
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        /**************************************************************
+         * 2. BLOCK SHAPES & COLORS CATALOG (Authentic Block Blast Set)
+         **************************************************************/
+        const BLOCK_COLORS = [
+            { cls: 'color-red', hex: '#ff4b55' },
+            { cls: 'color-orange', hex: '#ff8c24' },
+            { cls: 'color-yellow', hex: '#ffcc29' },
+            { cls: 'color-green', hex: '#2CE680' },
+            { cls: 'color-cyan', hex: '#2bc4f3' },
+            { cls: 'color-blue', hex: '#4c75f2' },
+            { cls: 'color-purple', hex: '#b055f5' },
+            { cls: 'color-pink', hex: '#ff5ca8' }
+        ];
+
+        // Matrices representing all classic Block Blast polyominoes
+        const SHAPES_CATALOG = [
+            // Singles & Dominoes
+            { weight: 6, matrix: [[1]] },
+            { weight: 7, matrix: [[1, 1]] },
+            { weight: 7, matrix: [[1], [1]] },
+
+            // Trominoes (3)
+            { weight: 9, matrix: [[1, 1, 1]] },
+            { weight: 9, matrix: [[1], [1], [1]] },
+            { weight: 8, matrix: [[1, 1], [1, 0]] },
+            { weight: 8, matrix: [[1, 1], [0, 1]] },
+            { weight: 8, matrix: [[1, 0], [1, 1]] },
+            { weight: 8, matrix: [[0, 1], [1, 1]] },
+
+            // Tetrominoes (4)
+            { weight: 10, matrix: [[1, 1], [1, 1]] }, // 2x2 Square
+            { weight: 8, matrix: [[1, 1, 1, 1]] },
+            { weight: 8, matrix: [[1], [1], [1], [1]] },
+            { weight: 7, matrix: [[1, 1, 1], [0, 1, 0]] }, // T
+            { weight: 7, matrix: [[0, 1, 0], [1, 1, 1]] },
+            { weight: 6, matrix: [[1, 0], [1, 1], [1, 0]] },
+            { weight: 6, matrix: [[0, 1], [1, 1], [0, 1]] },
+            { weight: 7, matrix: [[1, 1, 1], [1, 0, 0]] }, // L
+            { weight: 7, matrix: [[1, 1, 1], [0, 0, 1]] }, // J
+            { weight: 7, matrix: [[1, 0, 0], [1, 1, 1]] },
+            { weight: 7, matrix: [[0, 0, 1], [1, 1, 1]] },
+            { weight: 6, matrix: [[1, 0], [1, 0], [1, 1]] },
+            { weight: 6, matrix: [[0, 1], [0, 1], [1, 1]] },
+            { weight: 6, matrix: [[1, 1], [1, 0], [1, 0]] },
+            { weight: 6, matrix: [[1, 1], [0, 1], [0, 1]] },
+            { weight: 6, matrix: [[1, 1, 0], [0, 1, 1]] }, // Z
+            { weight: 6, matrix: [[0, 1, 1], [1, 1, 0]] }, // S
+            { weight: 5, matrix: [[0, 1], [1, 1], [1, 0]] },
+            { weight: 5, matrix: [[1, 0], [1, 1], [0, 1]] },
+
+            // Pentominoes & Big Classics (5 to 9)
+            { weight: 5, matrix: [[1, 1, 1, 1, 1]] },
+            { weight: 5, matrix: [[1], [1], [1], [1], [1]] },
+            { weight: 6, matrix: [[1, 1, 1], [1, 0, 0], [1, 0, 0]] }, // Big 3x3 Corner L
+            { weight: 6, matrix: [[1, 1, 1], [0, 0, 1], [0, 0, 1]] },
+            { weight: 6, matrix: [[1, 0, 0], [1, 0, 0], [1, 1, 1]] },
+            { weight: 6, matrix: [[0, 0, 1], [0, 0, 1], [1, 1, 1]] },
+            { weight: 6, matrix: [[1, 1, 1], [1, 1, 1]] }, // 2x3 Rectangle
+            { weight: 6, matrix: [[1, 1], [1, 1], [1, 1]] }, // 3x2 Rectangle
+            { weight: 7, matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]] }, // Iconic 3x3 Big Square
+
+            // Diagonal fun pieces (authentic to Block Blast)
+            { weight: 3, matrix: [[1, 0], [0, 1]] },
+            { weight: 3, matrix: [[0, 1], [1, 0]] },
+            { weight: 2, matrix: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+            { weight: 2, matrix: [[0, 0, 1], [0, 1, 0], [1, 0, 0]] }
+        ];
+
+        /**************************************************************
+         * 3. PARTICLE SYSTEM FOR JUICY VISUAL EXPLOSIONS
+         **************************************************************/
+        const fxCanvas = document.getElementById('fx-canvas');
+        const fxCtx = fxCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeFxCanvas() {
+            fxCanvas.width = window.innerWidth;
+            fxCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeFxCanvas);
+        resizeFxCanvas();
+
+        function spawnCellParticles(rect, hexColor) {
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const count = 9;
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 2 + Math.random() * 6.5;
+                particles.push({
+                    x: cx,
+                    y: cy,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 1.5,
+                    size: 5 + Math.random() * 7,
+                    color: hexColor || '#ffd23f',
+                    alpha: 1,
+                    rotation: Math.random() * Math.PI,
+                    vRot: (Math.random() - 0.5) * 0.25
+                });
+            }
+        }
+
+        function updateParticles() {
+            fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.28; // gravity
+                p.rotation += p.vRot;
+                p.alpha -= 0.024;
+                p.size *= 0.97;
+
+                if (p.alpha <= 0 || p.size <= 0.5) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                fxCtx.save();
+                fxCtx.globalAlpha = Math.max(0, p.alpha);
+                fxCtx.translate(p.x, p.y);
+                fxCtx.rotate(p.rotation);
+                fxCtx.fillStyle = p.color;
+                fxCtx.beginPath();
+                if (typeof fxCtx.roundRect === 'function') {
+                    fxCtx.roundRect(-p.size / 2, -p.size / 2, p.size, p.size, 3);
+                } else {
+                    fxCtx.rect(-p.size / 2, -p.size / 2, p.size, p.size);
+                }
+                fxCtx.fill();
+                fxCtx.restore();
+            }
+            requestAnimationFrame(updateParticles);
+        }
+        requestAnimationFrame(updateParticles);
+
+        /**************************************************************
+         * 4. CORE GAME STATE & LOGIC
+         **************************************************************/
+        const GRID_SIZE = 8;
+        let board = []; // 8x8 array of null or { cls, hex }
+        let trayPieces = [null, null, null];
+        let score = 0;
+        let displayedScore = 0;
+        let bestScore = safeGetBestScore();
+
+        // Combo & Streak State
+        let comboCount = 0;
+        let movesSinceLastClear = 0;
+        const MAX_COMBO_GRACE_MOVES = 3; // In Block Blast, combo stays alive for 3 placements
+
+        // Boosters
+        let rerollCharges = 2;
+        let rotateCharges = 2;
+
+        // DOM References
+        const boardGridEl = document.getElementById('board-grid');
+        const boardContainerEl = document.getElementById('board-container');
+        const floatingUiEl = document.getElementById('floating-ui');
+        const currentScoreEl = document.getElementById('current-score-el');
+        const bestScoreEl = document.getElementById('best-score-el');
+        const comboBadgeEl = document.getElementById('combo-badge');
+        const comboCountEl = document.getElementById('combo-count');
+        const streakDotsEl = document.getElementById('streak-dots');
+        const dragProxyEl = document.getElementById('drag-proxy');
+        const rerollBtn = document.getElementById('reroll-btn');
+        const rotateBtn = document.getElementById('rotate-btn');
+        const rerollCountEl = document.getElementById('reroll-count');
+        const rotateCountEl = document.getElementById('rotate-count');
+        const gameOverModal = document.getElementById('game-over-modal');
+
+        // Build 64 DOM cells once for fast updates
+        const cellElements = [];
+        function buildBoardDOM() {
+            boardGridEl.innerHTML = '';
+            cellElements.length = 0;
+            for (let r = 0; r < GRID_SIZE; r++) {
+                const rowEls = [];
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+                    boardGridEl.appendChild(cell);
+                    rowEls.push(cell);
+                }
+                cellElements.push(rowEls);
+            }
+        }
+
+        function initGame() {
+            board = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null));
+            score = 0;
+            displayedScore = 0;
+            comboCount = 0;
+            movesSinceLastClear = 0;
+            rerollCharges = 2;
+            rotateCharges = 2;
+
+            currentScoreEl.textContent = '0';
+            bestScoreEl.textContent = bestScore.toLocaleString('id-ID');
+            gameOverModal.classList.add('hidden');
+            gameOverModal.classList.remove('flex');
+
+            updateComboUI();
+            updateBoostersUI();
+            renderBoard();
+            spawnNewTray(true);
+        }
+
+        // Smooth rolling score animation
+        function addScore(points) {
+            score += points;
+            if (score > bestScore) {
+                bestScore = score;
+                safeSetBestScore(bestScore);
+                bestScoreEl.textContent = bestScore.toLocaleString('id-ID');
+            }
+
+            currentScoreEl.classList.add('scale-110');
+            setTimeout(() => currentScoreEl.classList.remove('scale-110'), 140);
+
+            const animateStep = () => {
+                if (displayedScore < score) {
+                    const diff = score - displayedScore;
+                    const step = Math.max(1, Math.ceil(diff * 0.25));
+                    displayedScore = Math.min(score, displayedScore + step);
+                    currentScoreEl.textContent = displayedScore.toLocaleString('id-ID');
+                    requestAnimationFrame(animateStep);
+                }
+            };
+            requestAnimationFrame(animateStep);
+        }
+
+        // Render the 8x8 logical board to DOM
+        function renderBoard(previewData = null) {
+            // previewData = { r, c, piece, clearingRows: Set, clearingCols: Set }
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const el = cellElements[r][c];
+                    const cellState = board[r][c];
+
+                    // Reset classes
+                    el.className = 'grid-cell';
+
+                    const isWillClear = previewData && (previewData.clearingRows.has(r) || previewData.clearingCols.has(c));
+
+                    if (cellState) {
+                        el.classList.add('jewel-block', cellState.cls);
+                        if (isWillClear) el.classList.add('will-clear');
+                    } else if (previewData) {
+                        const pr = r - previewData.r;
+                        const pc = c - previewData.c;
+                        if (
+                            pr >= 0 && pr < previewData.piece.matrix.length &&
+                            pc >= 0 && pc < previewData.piece.matrix[0].length &&
+                            previewData.piece.matrix[pr][pc] === 1
+                        ) {
+                            el.classList.add('jewel-block', previewData.piece.color.cls);
+                            if (isWillClear) {
+                                el.classList.add('will-clear');
+                            } else {
+                                el.classList.add('ghost-preview');
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /**************************************************************
+         * 5. SMART PIECE SPAWNER & PLACEABILITY CHECKS
+         **************************************************************/
+        function pickWeightedShape() {
+            const totalWeight = SHAPES_CATALOG.reduce((acc, item) => acc + item.weight, 0);
+            let rand = Math.random() * totalWeight;
+            for (const item of SHAPES_CATALOG) {
+                rand -= item.weight;
+                if (rand <= 0) {
+                    return item.matrix.map(row => [...row]);
+                }
+            }
+            return SHAPES_CATALOG[0].matrix.map(row => [...row]);
+        }
+
+        function createRandomPiece() {
+            const matrix = pickWeightedShape();
+            const color = BLOCK_COLORS[Math.floor(Math.random() * BLOCK_COLORS.length)];
+            return { matrix, color };
+        }
+
+        function canPieceFitAt(piece, startR, startC, customBoard = board) {
+            const rows = piece.matrix.length;
+            const cols = piece.matrix[0].length;
+
+            if (startR < 0 || startC < 0 || startR + rows > GRID_SIZE || startC + cols > GRID_SIZE) {
+                return false;
+            }
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (piece.matrix[r][c] === 1 && customBoard[startR + r][startC + c] !== null) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function canPieceFitAnywhere(piece, customBoard = board) {
+            if (!piece) return false;
+            for (let r = 0; r <= GRID_SIZE - piece.matrix.length; r++) {
+                for (let c = 0; c <= GRID_SIZE - piece.matrix[0].length; c++) {
+                    if (canPieceFitAt(piece, r, c, customBoard)) return true;
+                }
+            }
+            return false;
+        }
+
+        // Smart Tray Spawner: Ensures at least 1 generated piece can fit on the current board if possible
+        function spawnNewTray(animate = true) {
+            for (let i = 0; i < 3; i++) {
+                trayPieces[i] = createRandomPiece();
+            }
+
+            // Fairness guard: if none of the 3 random pieces fit on the current board,
+            // try replacing one slot with a piece from catalog that DOES fit.
+            const anyFits = trayPieces.some(p => canPieceFitAnywhere(p));
+            if (!anyFits) {
+                const fittingCandidates = SHAPES_CATALOG.filter(s =>
+                    canPieceFitAnywhere({ matrix: s.matrix })
+                );
+                if (fittingCandidates.length > 0) {
+                    const chosen = fittingCandidates[Math.floor(Math.random() * fittingCandidates.length)];
+                    const color = BLOCK_COLORS[Math.floor(Math.random() * BLOCK_COLORS.length)];
+                    trayPieces[Math.floor(Math.random() * 3)] = {
+                        matrix: chosen.matrix.map(r => [...r]),
+                        color
+                    };
+                }
+            }
+
+            renderTray(animate);
+            checkGameOverState();
+        }
+
+        function renderTray(animate = false) {
+            for (let i = 0; i < 3; i++) {
+                const slotEl = document.getElementById(`slot-${i}`);
+                slotEl.innerHTML = '';
+                slotEl.classList.remove('unplaceable', 'spawn-anim');
+
+                const piece = trayPieces[i];
+                if (!piece) continue;
+
+                if (animate) {
+                    void slotEl.offsetWidth; // trigger reflow
+                    slotEl.classList.add('spawn-anim');
+                }
+
+                const fits = canPieceFitAnywhere(piece);
+                if (!fits) {
+                    slotEl.classList.add('unplaceable');
+                }
+
+                const rows = piece.matrix.length;
+                const cols = piece.matrix[0].length;
+                const maxDim = Math.max(rows, cols);
+                const cellSize = maxDim >= 5 ? 15 : maxDim === 4 ? 18 : 22;
+
+                const pieceGrid = document.createElement('div');
+                pieceGrid.style.display = 'grid';
+                pieceGrid.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
+                pieceGrid.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
+                pieceGrid.style.gap = '3px';
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const cell = document.createElement('div');
+                        if (piece.matrix[r][c] === 1) {
+                            cell.className = `jewel-block ${piece.color.cls}`;
+                            cell.style.borderRadius = '4px';
+                        }
+                        pieceGrid.appendChild(cell);
+                    }
+                }
+                slotEl.appendChild(pieceGrid);
+            }
+        }
+
+        /**************************************************************
+         * 6. DRAG AND DROP INTERACTION (TOUCH & MOUSE)
+         **************************************************************/
+        let dragState = null;
+        // dragState = { slotIndex, piece, cellStep, proxyWidth, proxyHeight, lastValidSnap: {r, c} | null }
+
+        function getBoardMetrics() {
+            const rect = boardGridEl.getBoundingClientRect();
+            const width = rect.width > 0 ? rect.width : 320;
+            const cellStep = width / GRID_SIZE;
+            return { rect, cellStep };
+        }
+
+        function startDrag(slotIndex, clientX, clientY, isTouch) {
+            const piece = trayPieces[slotIndex];
+            if (!piece) return;
+
+            sfx.pickup();
+
+            const { cellStep } = getBoardMetrics();
+            const rows = piece.matrix.length;
+            const cols = piece.matrix[0].length;
+
+            // Build floating proxy matching exact board cell size
+            dragProxyEl.innerHTML = '';
+            dragProxyEl.style.display = 'grid';
+            dragProxyEl.style.gridTemplateRows = `repeat(${rows}, ${cellStep - 4}px)`;
+            dragProxyEl.style.gridTemplateColumns = `repeat(${cols}, ${cellStep - 4}px)`;
+            dragProxyEl.style.gap = '4px';
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.createElement('div');
+                    if (piece.matrix[r][c] === 1) {
+                        cell.className = `jewel-block ${piece.color.cls}`;
+                    }
+                    dragProxyEl.appendChild(cell);
+                }
+            }
+
+            const proxyWidth = cols * cellStep;
+            const proxyHeight = rows * cellStep;
+
+            // Hide original piece in dock while dragging
+            const slotEl = document.getElementById(`slot-${slotIndex}`);
+            slotEl.style.opacity = '0';
+
+            dragState = {
+                slotIndex,
+                piece,
+                proxyWidth,
+                proxyHeight,
+                isTouch,
+                targetR: null,
+                targetC: null
+            };
+
+            moveDrag(clientX, clientY);
+        }
+
+        function moveDrag(clientX, clientY) {
+            if (!dragState) return;
+
+            const { rect, cellStep } = getBoardMetrics();
+            const { piece, proxyWidth, proxyHeight, isTouch } = dragState;
+
+            // Offset upward on touch devices (and slightly on mouse) so finger never blocks view
+            const verticalLift = isTouch ? 85 : 35;
+            const centerX = clientX;
+            const centerY = clientY - verticalLift;
+
+            const leftX = centerX - proxyWidth / 2;
+            const topY = centerY - proxyHeight / 2;
+
+            dragProxyEl.style.left = `${leftX}px`;
+            dragProxyEl.style.top = `${topY}px`;
+
+            // Map top-left of dragged piece to nearest board grid cell (with forgiving magnetic tolerance)
+            const rawC = (leftX - rect.left + cellStep * 0.5) / cellStep;
+            const rawR = (topY - rect.top + cellStep * 0.5) / cellStep;
+
+            const snapC = Math.floor(rawC);
+            const snapR = Math.floor(rawR);
+
+            // Check if within reasonable proximity to the board
+            const margin = cellStep * 1.15;
+            const insideBoardBounds =
+                centerX >= rect.left - margin &&
+                centerX <= rect.right + margin &&
+                centerY >= rect.top - margin &&
+                centerY <= rect.bottom + margin;
+
+            let validR = null;
+            let validC = null;
+
+            if (insideBoardBounds) {
+                if (canPieceFitAt(piece, snapR, snapC)) {
+                    validR = snapR;
+                    validC = snapC;
+                } else {
+                    // Magnetic assist: check immediate neighbors within 0.45 cell radius if exact cell is blocked
+                    const candidates = [
+                        [snapR, snapC],
+                        [snapR - 1, snapC],
+                        [snapR + 1, snapC],
+                        [snapR, snapC - 1],
+                        [snapR, snapC + 1]
+                    ];
+                    let bestDist = Infinity;
+                    for (const [cr, cc] of candidates) {
+                        if (canPieceFitAt(piece, cr, cc)) {
+                            const cellLeft = rect.left + cc * cellStep;
+                            const cellTop = rect.top + cr * cellStep;
+                            const dist = Math.hypot(leftX - cellLeft, topY - cellTop);
+                            if (dist < cellStep * 0.85 && dist < bestDist) {
+                                bestDist = dist;
+                                validR = cr;
+                                validC = cc;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (validR !== dragState.targetR || validC !== dragState.targetC) {
+                dragState.targetR = validR;
+                dragState.targetC = validC;
+
+                if (validR !== null && validC !== null) {
+                    const { clearingRows, clearingCols } = simulateLinesToClear(piece, validR, validC);
+                    renderBoard({
+                        r: validR,
+                        c: validC,
+                        piece,
+                        clearingRows,
+                        clearingCols
+                    });
+                } else {
+                    renderBoard(null);
+                }
+            }
+        }
+
+        function endDrag() {
+            if (!dragState) return;
+
+            const { slotIndex, piece, targetR, targetC } = dragState;
+            const slotEl = document.getElementById(`slot-${slotIndex}`);
+            dragProxyEl.style.display = 'none';
+
+            if (targetR !== null && targetC !== null && canPieceFitAt(piece, targetR, targetC)) {
+                slotEl.style.opacity = '1';
+                placePieceOnBoard(slotIndex, piece, targetR, targetC);
+            } else {
+                // Return to slot
+                sfx.invalid();
+                slotEl.style.opacity = '1';
+                renderBoard(null);
+            }
+
+            dragState = null;
+        }
+
+        // Attach pointer/touch/mouse listeners to the 3 slots
+        for (let i = 0; i < 3; i++) {
+            const slotEl = document.getElementById(`slot-${i}`);
+
+            slotEl.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                startDrag(i, e.clientX, e.clientY, false);
+            });
+
+            slotEl.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 0) {
+                    const t = e.touches[0];
+                    startDrag(i, t.clientX, t.clientY, true);
+                }
+            }, { passive: true });
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            if (dragState) moveDrag(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (dragState && e.touches.length > 0) {
+                const t = e.touches[0];
+                moveDrag(t.clientX, t.clientY);
+            }
+        }, { passive: true });
+
+        window.addEventListener('mouseup', () => {
+            if (dragState) endDrag();
+        });
+
+        window.addEventListener('touchend', () => {
+            if (dragState) endDrag();
+        });
+
+        window.addEventListener('touchcancel', () => {
+            if (dragState) endDrag();
+        });
+
+        /**************************************************************
+         * 7. PLACEMENT, LINE CLEARING & COMBO SCORING ENGINE
+         **************************************************************/
+        function simulateLinesToClear(piece, startR, startC) {
+            const tempBoard = board.map(row => [...row]);
+            for (let r = 0; r < piece.matrix.length; r++) {
+                for (let c = 0; c < piece.matrix[0].length; c++) {
+                    if (piece.matrix[r][c] === 1) {
+                        tempBoard[startR + r][startC + c] = piece.color;
+                    }
+                }
+            }
+
+            const clearingRows = new Set();
+            const clearingCols = new Set();
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                if (tempBoard[r].every(cell => cell !== null)) clearingRows.add(r);
+            }
+            for (let c = 0; c < GRID_SIZE; c++) {
+                let full = true;
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    if (tempBoard[r][c] === null) {
+                        full = false;
+                        break;
+                    }
+                }
+                if (full) clearingCols.add(c);
+            }
+
+            return { clearingRows, clearingCols };
+        }
+
+        function placePieceOnBoard(slotIndex, piece, startR, startC) {
+            sfx.place();
+
+            let blocksPlacedCount = 0;
+            const newlyPlacedCoords = [];
+
+            for (let r = 0; r < piece.matrix.length; r++) {
+                for (let c = 0; c < piece.matrix[0].length; c++) {
+                    if (piece.matrix[r][c] === 1) {
+                        board[startR + r][startC + c] = piece.color;
+                        blocksPlacedCount++;
+                        newlyPlacedCoords.push([startR + r, startC + c]);
+                    }
+                }
+            }
+
+            // Remove from tray
+            trayPieces[slotIndex] = null;
+
+            // Check full rows and columns
+            const { clearingRows, clearingCols } = simulateLinesToClear({ matrix: [[0]], color: null }, 0, 0);
+            const totalLinesCleared = clearingRows.size + clearingCols.size;
+
+            // Render placed state
+            renderBoard(null);
+            newlyPlacedCoords.forEach(([r, c]) => {
+                cellElements[r][c].classList.add('just-placed');
+            });
+
+            // Calculate center of placed piece for floating score
+            const anchorCell = cellElements[startR][startC];
+            const anchorRect = anchorCell.getBoundingClientRect();
+            const boardRect = boardContainerEl.getBoundingClientRect();
+            const relX = anchorRect.left - boardRect.left + anchorRect.width;
+            const relY = anchorRect.top - boardRect.top;
+
+            if (totalLinesCleared > 0) {
+                comboCount++;
+                movesSinceLastClear = 0;
+
+                // Reward extra booster charge every 4 combos!
+                if (comboCount % 4 === 0) {
+                    rerollCharges = Math.min(5, rerollCharges + 1);
+                    rotateCharges = Math.min(5, rotateCharges + 1);
+                    updateBoostersUI();
+                }
+
+                // Authentic Block Blast scoring formula
+                const lineBaseScore = totalLinesCleared === 1 ? 10 :
+                                      totalLinesCleared === 2 ? 30 :
+                                      totalLinesCleared === 3 ? 60 :
+                                      totalLinesCleared === 4 ? 100 : totalLinesCleared * 35;
+
+                const comboMultiplier = comboCount;
+                const earnedPoints = blocksPlacedCount + (lineBaseScore * comboMultiplier);
+
+                // Collect unique cells to clear
+                const cellsToClear = [];
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (clearingRows.has(r) || clearingCols.has(c)) {
+                            cellsToClear.push({ r, c, color: board[r][c] });
+                            board[r][c] = null;
+                        }
+                    }
+                }
+
+                // Trigger visual explosion & clear animation
+                sfx.clear(totalLinesCleared, comboCount);
+
+                if (totalLinesCleared >= 2 || comboCount >= 2) {
+                    boardContainerEl.classList.remove('shake-board');
+                    void boardContainerEl.offsetWidth;
+                    boardContainerEl.classList.add('shake-board');
+                }
+
+                cellsToClear.forEach(({ r, c, color }) => {
+                    const el = cellElements[r][c];
+                    el.classList.add('clearing-cell');
+                    const rect = el.getBoundingClientRect();
+                    spawnCellParticles(rect, color ? color.hex : piece.color.hex);
+                });
+
+                // Check if entire board is now completely empty (ALL CLEAR!)
+                const isBoardEmpty = board.every(row => row.every(cell => cell === null));
+                const allClearBonus = isBoardEmpty ? 300 : 0;
+
+                addScore(earnedPoints + allClearBonus);
+                showFloatingScore(`+${earnedPoints + allClearBonus}`, relX, relY, true);
+                showAnnouncementBanner(totalLinesCleared, comboCount, isBoardEmpty);
+
+                if (isBoardEmpty) {
+                    setTimeout(() => sfx.allClear(), 220);
+                }
+
+                setTimeout(() => {
+                    renderBoard(null);
+                    afterMoveLifecycle();
+                }, 280);
+
+            } else {
+                // No lines cleared on this placement
+                addScore(blocksPlacedCount);
+                showFloatingScore(`+${blocksPlacedCount}`, relX, relY, false);
+
+                if (comboCount > 0) {
+                    movesSinceLastClear++;
+                    if (movesSinceLastClear >= MAX_COMBO_GRACE_MOVES) {
+                        comboCount = 0;
+                        movesSinceLastClear = 0;
+                    }
+                }
+                afterMoveLifecycle();
+            }
+
+            updateComboUI();
+        }
+
+        function afterMoveLifecycle() {
+            const allTrayUsed = trayPieces.every(p => p === null);
+            if (allTrayUsed) {
+                spawnNewTray(true);
+            } else {
+                renderTray(false);
+                checkGameOverState();
+            }
+        }
+
+        function updateComboUI() {
+            if (comboCount > 0) {
+                comboCountEl.textContent = comboCount;
+                comboBadgeEl.classList.remove('opacity-0', 'scale-90');
+                comboBadgeEl.classList.add('opacity-100', 'scale-100');
+
+                streakDotsEl.classList.remove('opacity-0');
+                const remainingGrace = MAX_COMBO_GRACE_MOVES - movesSinceLastClear;
+                const dots = streakDotsEl.children;
+                for (let i = 0; i < 3; i++) {
+                    if (i < remainingGrace) {
+                        dots[i].className = 'w-2.5 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24] transition-all';
+                    } else {
+                        dots[i].className = 'w-2.5 h-2 rounded-full bg-slate-600/60 transition-all';
+                    }
+                }
+            } else {
+                comboBadgeEl.classList.add('opacity-0', 'scale-90');
+                comboBadgeEl.classList.remove('opacity-100', 'scale-100');
+                streakDotsEl.classList.add('opacity-0');
+            }
+        }
+
+        function showFloatingScore(text, x, y, isBig) {
+            const el = document.createElement('div');
+            el.className = `score-float absolute font-extrabold pointer-events-none z-30 ${
+                isBig ? 'text-2xl sm:text-3xl text-amber-300' : 'text-lg text-white/90'
+            }`;
+            el.style.left = `${Math.min(Math.max(x, 40), boardContainerEl.clientWidth - 40)}px`;
+            el.style.top = `${Math.min(Math.max(y, 30), boardContainerEl.clientHeight - 30)}px`;
+            el.textContent = text;
+            floatingUiEl.appendChild(el);
+            setTimeout(() => el.remove(), 950);
+        }
+
+        function showAnnouncementBanner(lines, combo, isAllClear) {
+            let label = '';
+            let iconClass = 'fa-solid fa-bolt';
+            let gradient = 'from-yellow-300 via-amber-400 to-orange-500';
+
+            if (isAllClear) {
+                label = 'PERFECT CLEAR! +300';
+                iconClass = 'fa-solid fa-star';
+                gradient = 'from-emerald-300 via-cyan-300 to-blue-400';
+            } else if (combo >= 5) {
+                label = `UNBELIEVABLE! COMBO x${combo}`;
+                iconClass = 'fa-solid fa-fire-flame-curved';
+                gradient = 'from-fuchsia-400 via-pink-400 to-amber-300';
+            } else if (combo >= 2) {
+                label = `COMBO x${combo}!`;
+                iconClass = 'fa-solid fa-bolt';
+            } else if (lines >= 4) {
+                label = 'FANTASTIC! 4 BARIS!';
+                iconClass = 'fa-solid fa-burst';
+            } else if (lines === 3) {
+                label = 'TRIPLE CLEAR!';
+                iconClass = 'fa-solid fa-wand-magic-sparkles';
+            } else if (lines === 2) {
+                label = 'DOUBLE CLEAR!';
+                iconClass = 'fa-solid fa-thumbs-up';
+            } else {
+                return; // Single clear with 1x combo doesn't need big banner
+            }
+
+            const banner = document.createElement('div');
+            banner.className = `combo-banner absolute left-1/2 top-1/2 whitespace-nowrap text-2xl sm:text-3xl font-extrabold bg-gradient-to-b ${gradient} bg-clip-text text-transparent z-40 pointer-events-none flex items-center gap-2`;
+            banner.innerHTML = `<i class="${iconClass} text-amber-300 drop-shadow"></i><span>${label}</span>`;
+            floatingUiEl.appendChild(banner);
+            setTimeout(() => banner.remove(), 1100);
+        }
+
+        /**************************************************************
+         * 8. BOOSTERS (REROLL & ROTATE) + GAME OVER CHECK
+         **************************************************************/
+        function updateBoostersUI() {
+            rerollCountEl.textContent = rerollCharges;
+            rotateCountEl.textContent = rotateCharges;
+            rerollBtn.disabled = rerollCharges <= 0;
+            rotateBtn.disabled = rotateCharges <= 0;
+        }
+
+        function rotateMatrixClockwise(mat) {
+            const rows = mat.length;
+            const cols = mat[0].length;
+            const rotated = Array.from({ length: cols }, () => Array(rows).fill(0));
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    rotated[c][rows - 1 - r] = mat[r][c];
+                }
+            }
+            return rotated;
+        }
+
+        rerollBtn.addEventListener('click', () => {
+            if (rerollCharges <= 0) return;
+            rerollCharges--;
+            sfx.pickup();
+            updateBoostersUI();
+            spawnNewTray(true);
+        });
+
+        rotateBtn.addEventListener('click', () => {
+            if (rotateCharges <= 0) return;
+            const hasPieces = trayPieces.some(p => p !== null);
+            if (!hasPieces) return;
+
+            rotateCharges--;
+            sfx.pickup();
+            for (let i = 0; i < 3; i++) {
+                if (trayPieces[i]) {
+                    trayPieces[i].matrix = rotateMatrixClockwise(trayPieces[i].matrix);
+                }
+            }
+            updateBoostersUI();
+            renderTray(true);
+            checkGameOverState();
+        });
+
+        function checkGameOverState() {
+            const remainingPieces = trayPieces.filter(p => p !== null);
+            if (remainingPieces.length === 0) return;
+
+            const anyCanFit = remainingPieces.some(p => canPieceFitAnywhere(p));
+            if (!anyCanFit) {
+                setTimeout(() => {
+                    sfx.gameOver();
+                    document.getElementById('modal-score').textContent = score.toLocaleString('id-ID');
+                    document.getElementById('modal-best').textContent = bestScore.toLocaleString('id-ID');
+                    const badge = document.getElementById('new-record-badge');
+                    if (score > 0 && score >= bestScore) {
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                    gameOverModal.classList.remove('hidden');
+                    gameOverModal.classList.add('flex');
+                }, 450);
+            }
+        }
+
+        /**************************************************************
+         * 9. TOP BAR CONTROLS & INITIALIZATION
+         **************************************************************/
+        document.querySelectorAll('.sound-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                sfx.enabled = !sfx.enabled;
+                document.querySelectorAll('.sound-icon').forEach(icon => {
+                    icon.className = sfx.enabled
+                        ? 'sound-icon fa-solid fa-volume-high'
+                        : 'sound-icon fa-solid fa-volume-xmark';
+                });
+                if (sfx.enabled) sfx.pickup();
+            });
+        });
+
+        document.querySelectorAll('.restart-trigger-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                sfx.pickup();
+                initGame();
+            });
+        });
+
+        document.getElementById('play-again-btn').addEventListener('click', () => {
+            sfx.pickup();
+            initGame();
+        });
+
+        let hasInitialized = false;
+        function bootGame() {
+            if (hasInitialized && cellElements.length === GRID_SIZE) return;
+            hasInitialized = true;
+            buildBoardDOM();
+            initGame();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bootGame);
+        } else {
+            bootGame();
+        }
+
+        window.addEventListener('load', bootGame);
+        setTimeout(() => {
+            if (cellElements.length === 0) bootGame();
+        }, 50);
+
+        window.addEventListener('resize', () => {
+            resizeFxCanvas();
+            renderTray(false);
+        });
+    </script>
+</body>
+</html>
