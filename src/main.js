@@ -1844,6 +1844,10 @@ function bootApp() {
   applyTheme(settings.theme);
   syncSoundUI();
   syncHapticsUI();
+  const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.1-beta';
+  document.querySelectorAll('.app-version-label').forEach((el) => {
+    el.textContent = `v${appVersion}`;
+  });
   buildBoardDOM();
   showMainMenu();
 

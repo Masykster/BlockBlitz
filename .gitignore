@@ -15,5 +15,9 @@ android/captures/
 android/local.properties
 android/app/release/*.apk
 android/app/release/*.aab
+release-apks/
+release-artifacts/
+*.ipa
+*.xcarchive
 *.keystore
 *.jks

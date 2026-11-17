@@ -1,4 +1,4 @@
-name: Build BlockBlitz Android APK
+name: Build BlockBlitz Beta & Release (APK + IPA)
 
 on:
   push:
@@ -13,8 +13,12 @@ permissions:
 
 jobs:
   build-android:
-    name: Build Offline HTML5 + Capacitor APK
+    name: Build Android Release APK
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      apk_name: ${{ steps.meta.outputs.apk_name }}
+      signing_mode: ${{ steps.keystore.outputs.signing_mode }}
 
     steps:
       - name: Checkout repository
@@ -57,94 +61,356 @@ jobs:
       - name: Grant execute permission to gradlew
         run: chmod +x android/gradlew
 
-      - name: Build Debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
-
-      - name: Stage Debug APK artifact
+      - name: Read app metadata from package.json
+        id: meta
         run: |
-          mkdir -p release-apks
-          cp android/app/build/outputs/apk/debug/app-debug.apk release-apks/BlockBlitz-debug.apk
+          APP_VERSION=$(node -p "require('./package.json').version")
+          APK_NAME="BlockBlitz-v${APP_VERSION}-release.apk"
+          echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Debug APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: BlockBlitz-debug-apk
-          path: release-apks/BlockBlitz-debug.apk
-          retention-days: 30
-
-      - name: Check optional release signing secrets
-        id: signing_check
+      - name: Prepare Release Signing Keystore
+        id: keystore
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          KEYSTORE_FILE="$RUNNER_TEMP/release.keystore"
           if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASS" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASS" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            printf '%s' "$KEYSTORE_B64" | tr -d '\r\n ' | base64 --decode > "$KEYSTORE_FILE"
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_FILE" >> "$GITHUB_ENV"
+            echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=$KEY_PASS" >> "$GITHUB_ENV"
+            echo "signing_mode=secret" >> "$GITHUB_OUTPUT"
           else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            BETA_PASS="blockblitz-beta-release"
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE_FILE" \
+              -storetype PKCS12 \
+              -alias blockblitz-beta \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 3650 \
+              -storepass "$BETA_PASS" \
+              -keypass "$BETA_PASS" \
+              -dname "CN=BlockBlitz Beta, OU=Mobile, O=BlockBlitz, C=ID"
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_FILE" >> "$GITHUB_ENV"
+            echo "ANDROID_KEYSTORE_PASSWORD=$BETA_PASS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=blockblitz-beta" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=$BETA_PASS" >> "$GITHUB_ENV"
+            echo "signing_mode=ci-beta" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build Signed Release APK
-        if: steps.signing_check.outputs.enabled == 'true'
-        env:
-          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Verify APK signature & stage artifact
         run: |
-          printf '%s' "$KEYSTORE_B64" | tr -d '\r\n ' | base64 --decode > "$RUNNER_TEMP/release.keystore"
-          cd android
-          ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.keystore" ./gradlew assembleRelease --no-daemon
-          cd ..
-          cp android/app/build/outputs/apk/release/app-release.apk release-apks/BlockBlitz-release.apk
+          RELEASE_APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -f "$RELEASE_APK"
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose "$RELEASE_APK"
+          mkdir -p release-artifacts
+          cp "$RELEASE_APK" "release-artifacts/${{ steps.meta.outputs.apk_name }}"
+          ls -lh release-artifacts/
 
       - name: Clean up temporary keystore
-        if: always() && steps.signing_check.outputs.enabled == 'true'
+        if: always()
         run: rm -f "$RUNNER_TEMP/release.keystore"
 
-      - name: Upload Signed Release APK artifact
-        if: steps.signing_check.outputs.enabled == 'true'
+      - name: Upload Android Release APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: BlockBlitz-release-apk
-          path: release-apks/BlockBlitz-release.apk
+          path: release-artifacts/${{ steps.meta.outputs.apk_name }}
           retention-days: 30
 
-      - name: Publish GitHub Release for version tags
-        if: startsWith(github.ref, 'refs/tags/v')
+  build-ios:
+    name: Build iOS iPhone IPA
+    runs-on: macos-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      ipa_name: ${{ steps.meta.outputs.ipa_name }}
+      ios_signing_mode: ${{ steps.ios_sign_check.outputs.mode }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build offline web bundle
+        run: npm run build
+
+      - name: Sync Capacitor iOS project
+        run: npx cap sync ios
+
+      - name: Read app metadata & check optional Apple signing secrets
+        id: ios_sign_check
         env:
-          GH_TOKEN: ${{ github.token }}
+          IOS_P12_B64: ${{ secrets.IOS_P12_BASE64 }}
+          IOS_P12_PASS: ${{ secrets.IOS_P12_PASSWORD }}
+          IOS_PROV_B64: ${{ secrets.IOS_MOBILEPROVISION_BASE64 }}
         run: |
-          TAG_NAME="${GITHUB_REF_NAME}"
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            gh release upload "$TAG_NAME" release-apks/*.apk --clobber
+          if [ -n "$IOS_P12_B64" ] && [ -n "$IOS_P12_PASS" ] && [ -n "$IOS_PROV_B64" ]; then
+            echo "mode=signed" >> "$GITHUB_OUTPUT"
           else
-            gh release create "$TAG_NAME" release-apks/*.apk \
-              --title "BlockBlitz $TAG_NAME" \
-              --generate-notes || \
-            gh release create "$TAG_NAME" release-apks/*.apk \
-              --title "BlockBlitz $TAG_NAME" \
-              --notes "Rilis BlockBlitz $TAG_NAME (commit ${GITHUB_SHA::7})."
+            echo "mode=unsigned" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Update rolling 'latest' GitHub Release on main/master
-        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || github.event_name == 'workflow_dispatch'
+      - name: Compute iOS versions and artifact filename
+        id: meta
+        run: |
+          APP_VERSION=$(node -p "require('./package.json').version")
+          MARKETING_VER="${APP_VERSION%%-*}"
+          if [ "${{ steps.ios_sign_check.outputs.mode }}" = "signed" ]; then
+            IPA_NAME="BlockBlitz-v${APP_VERSION}.ipa"
+          else
+            IPA_NAME="BlockBlitz-v${APP_VERSION}-unsigned.ipa"
+          fi
+          echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "marketing_version=$MARKETING_VER" >> "$GITHUB_OUTPUT"
+          echo "ipa_name=$IPA_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Swift Package Manager dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project ios/App/App.xcodeproj \
+            -scheme App
+
+      - name: Build Signed iOS IPA (optional Apple Developer secrets)
+        if: steps.ios_sign_check.outputs.mode == 'signed'
+        env:
+          IOS_P12_B64: ${{ secrets.IOS_P12_BASE64 }}
+          IOS_P12_PASS: ${{ secrets.IOS_P12_PASSWORD }}
+          IOS_PROV_B64: ${{ secrets.IOS_MOBILEPROVISION_BASE64 }}
+          IOS_EXPORT_METHOD: ${{ secrets.IOS_EXPORT_METHOD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/ios-build.keychain-db"
+          KEYCHAIN_PASS="$(openssl rand -hex 16)"
+          P12_PATH="$RUNNER_TEMP/cert.p12"
+          PROV_PATH="$RUNNER_TEMP/profile.mobileprovision"
+
+          printf '%s' "$IOS_P12_B64" | tr -d '\r\n ' | base64 --decode > "$P12_PATH"
+          printf '%s' "$IOS_PROV_B64" | tr -d '\r\n ' | base64 --decode > "$PROV_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+          security import "$P12_PATH" -P "$IOS_P12_PASS" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+
+          security cms -D -i "$PROV_PATH" > "$RUNNER_TEMP/profile.plist"
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$RUNNER_TEMP/profile.plist")
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$RUNNER_TEMP/profile.plist")
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" "$RUNNER_TEMP/profile.plist")
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROV_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
+
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            archive \
+            MARKETING_VERSION="${{ steps.meta.outputs.marketing_version }}" \
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER:-1}" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME"
+
+          EXPORT_METHOD="${IOS_EXPORT_METHOD:-ad-hoc}"
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>${EXPORT_METHOD}</string>
+            <key>teamID</key>
+            <string>${TEAM_ID}</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.blockblitz.app</key>
+              <string>${PROFILE_NAME}</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/ipa-export"
+
+          mkdir -p release-artifacts
+          EXPORTED_IPA=$(find "$RUNNER_TEMP/ipa-export" -name "*.ipa" | head -n 1)
+          test -f "$EXPORTED_IPA"
+          cp "$EXPORTED_IPA" "release-artifacts/${{ steps.meta.outputs.ipa_name }}"
+
+      - name: Clean up temporary Apple signing credentials
+        if: always() && steps.ios_sign_check.outputs.mode == 'signed'
+        run: |
+          security delete-keychain "$RUNNER_TEMP/ios-build.keychain-db" || true
+          rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist" "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Build Unsigned / Sideload-ready iOS IPA
+        if: steps.ios_sign_check.outputs.mode == 'unsigned'
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            clean archive \
+            MARKETING_VERSION="${{ steps.meta.outputs.marketing_version }}" \
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER:-1}" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+          APP_BUNDLE="$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app"
+          test -d "$APP_BUNDLE"
+          test -f "$APP_BUNDLE/Info.plist"
+          test -f "$APP_BUNDLE/public/index.html"
+
+          rm -rf "$RUNNER_TEMP/ipa-stage"
+          mkdir -p "$RUNNER_TEMP/ipa-stage/Payload" release-artifacts
+          cp -R "$APP_BUNDLE" "$RUNNER_TEMP/ipa-stage/Payload/App.app"
+          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/ipa-stage/Payload" "release-artifacts/${{ steps.meta.outputs.ipa_name }}"
+          unzip -tq "release-artifacts/${{ steps.meta.outputs.ipa_name }}"
+          ls -lh release-artifacts/
+
+      - name: Upload iOS IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockBlitz-ios-ipa
+          path: release-artifacts/${{ steps.meta.outputs.ipa_name }}
+          retention-days: 30
+
+  publish-release:
+    name: Publish Beta & Latest GitHub Releases
+    needs: [build-android, build-ios]
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))) || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download built Android APK and iOS IPA artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Verify staged release binaries
+        run: ls -lh release-artifacts/
+
+      - name: Publish versioned Beta Release & update rolling latest
         env:
           GH_TOKEN: ${{ github.token }}
+          APP_VERSION: ${{ needs.build-android.outputs.version }}
+          APK_NAME: ${{ needs.build-android.outputs.apk_name }}
+          ANDROID_SIGNING_MODE: ${{ needs.build-android.outputs.signing_mode }}
+          IPA_NAME: ${{ needs.build-ios.outputs.ipa_name }}
+          IOS_SIGNING_MODE: ${{ needs.build-ios.outputs.ios_signing_mode }}
         run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION_TAG="$GITHUB_REF_NAME"
+          else
+            VERSION_TAG="v${APP_VERSION}"
+          fi
+
+          IS_PRERELEASE="false"
+          if echo "$APP_VERSION" | grep -Eq '(-alpha|-beta|-rc|^0\.)'; then
+            IS_PRERELEASE="true"
+          fi
+
+          if [ "$ANDROID_SIGNING_MODE" = "secret" ]; then
+            ANDROID_SIGN_NOTE="Ditandatangani dengan Release Keystore permanen repositori."
+          else
+            ANDROID_SIGN_NOTE="Ditandatangani otomatis dengan CI Beta Release Keystore (hapus versi lama jika gagal menimpa instalasi)."
+          fi
+
+          if [ "$IOS_SIGNING_MODE" = "signed" ]; then
+            IOS_INSTALL_NOTE="File \`.ipa\` sudah ditandatangani dan siap diinstal langsung ke iPhone."
+          else
+            IOS_INSTALL_NOTE="File \`.ipa\` bersifat **unsigned (sideload-ready)** untuk iPhone iOS 15+. Instal menggunakan **Sideloadly**, **AltStore**, atau **SideStore** dengan Apple ID Anda."
+          fi
+
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+          cat > "$NOTES_FILE" <<EOF
+          ## BlockBlitz ${VERSION_TAG}
+
+          Build otomatis dari commit \`${GITHUB_SHA::7}\` (${GITHUB_REF_NAME}).
+
+          ### Aset Unduhan
+          - **Android Release APK**: \`${APK_NAME}\`
+            - ${ANDROID_SIGN_NOTE}
+          - **iPhone iOS IPA**: \`${IPA_NAME}\`
+            - ${IOS_INSTALL_NOTE}
+          EOF
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          publish_tag_release() {
+            local TAG="$1"
+            local TITLE="$2"
+
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              EXISTING_ASSETS=$(gh release view "$TAG" --json assets -q '.assets[].name')
+              while IFS= read -r OLD_ASSET; do
+                [ -n "$OLD_ASSET" ] || continue
+                if [ ! -f "release-artifacts/${OLD_ASSET}" ]; then
+                  gh release delete-asset "$TAG" "$OLD_ASSET" -y || true
+                fi
+              done <<< "$EXISTING_ASSETS"
+              gh release upload "$TAG" release-artifacts/* --clobber
+              if [ "$IS_PRERELEASE" = "true" ]; then
+                gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES_FILE" --prerelease
+              else
+                gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES_FILE" --prerelease=false
+              fi
+            else
+              if [ "$IS_PRERELEASE" = "true" ]; then
+                gh release create "$TAG" release-artifacts/* --title "$TITLE" --notes-file "$NOTES_FILE" --prerelease
+              else
+                gh release create "$TAG" release-artifacts/* --title "$TITLE" --notes-file "$NOTES_FILE"
+              fi
+            fi
+          }
+
+          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
+            git tag -f "$VERSION_TAG" "$GITHUB_SHA"
+            git push -f origin "$VERSION_TAG"
+          fi
+          publish_tag_release "$VERSION_TAG" "BlockBlitz ${VERSION_TAG}"
+
           git tag -f latest "$GITHUB_SHA"
           git push -f origin latest
-          NOTES="Build otomatis terbaru dari \`${GITHUB_REF_NAME}\` (commit \`${GITHUB_SHA::7}\`). Unduh \`BlockBlitz-debug.apk\` langsung dan instal di Android."
-          if gh release view latest >/dev/null 2>&1; then
-            gh release upload latest release-apks/*.apk --clobber
-            gh release edit latest --title "BlockBlitz Latest Build" --notes "$NOTES"
-          else
-            gh release create latest release-apks/*.apk \
-              --title "BlockBlitz Latest Build" \
-              --notes "$NOTES"
-          fi
+          publish_tag_release "latest" "BlockBlitz Latest Build (${VERSION_TAG})"
