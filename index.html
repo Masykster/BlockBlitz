@@ -180,8 +180,10 @@
         </div>
     </section>
 
-    <!-- Floating Drag Proxy Element -->
-    <div id="drag-proxy"></div>
+    <!-- Floating Drag Proxy Element (outer = finger position, inner = smooth pickup glide) -->
+    <div id="drag-proxy">
+        <div id="drag-proxy-inner"></div>
+    </div>
 
     <!-- Android Back Confirmation Toast -->
     <div id="exit-toast" role="status" aria-live="polite" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[70] pointer-events-none opacity-0 translate-y-2 transition-all duration-200 bg-[#0d132b]/95 border border-[#4257a6] text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-xl whitespace-nowrap">
@@ -193,8 +195,8 @@
          ========================================================= -->
 
     <!-- Pause Modal -->
-    <div id="pause-modal" class="fixed inset-0 bg-black/75 z-50 hidden items-center justify-center p-4">
-        <div class="theme-panel border-4 rounded-3xl max-w-xs w-full p-5 text-center shadow-2xl">
+    <div id="pause-modal" class="modal-backdrop fixed inset-0 bg-black/75 z-50 hidden items-center justify-center p-4">
+        <div class="modal-card theme-panel border-4 rounded-3xl max-w-xs w-full p-5 text-center shadow-2xl">
             <div class="w-12 h-12 mx-auto mb-2.5 rounded-2xl theme-btn border flex items-center justify-center text-amber-300 text-xl">
                 <i class="fa-solid fa-pause"></i>
             </div>
@@ -223,8 +225,8 @@
     </div>
 
     <!-- Settings Modal -->
-    <div id="settings-modal" class="fixed inset-0 bg-black/75 z-[55] hidden items-center justify-center p-4">
-        <div class="theme-panel border-4 rounded-3xl max-w-sm w-full p-5 shadow-2xl">
+    <div id="settings-modal" class="modal-backdrop fixed inset-0 bg-black/75 z-[55] hidden items-center justify-center p-4">
+        <div class="modal-card theme-panel border-4 rounded-3xl max-w-sm w-full p-5 shadow-2xl">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-gear text-amber-300 text-lg"></i>
@@ -269,8 +271,8 @@
     </div>
 
     <!-- Stats Modal -->
-    <div id="stats-modal" class="fixed inset-0 bg-black/75 z-[55] hidden items-center justify-center p-4">
-        <div class="theme-panel border-4 rounded-3xl max-w-sm w-full p-5 shadow-2xl">
+    <div id="stats-modal" class="modal-backdrop fixed inset-0 bg-black/75 z-[55] hidden items-center justify-center p-4">
+        <div class="modal-card theme-panel border-4 rounded-3xl max-w-sm w-full p-5 shadow-2xl">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-trophy text-amber-400 text-lg"></i>
@@ -323,8 +325,8 @@
     </div>
 
     <!-- Adventure Level Complete Modal -->
-    <div id="level-clear-modal" class="fixed inset-0 bg-black/75 z-50 hidden items-center justify-center p-4">
-        <div class="theme-panel border-4 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl">
+    <div id="level-clear-modal" class="modal-backdrop fixed inset-0 bg-black/75 z-50 hidden items-center justify-center p-4">
+        <div class="modal-card theme-panel border-4 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl">
             <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400/50 flex items-center justify-center text-emerald-300 text-3xl shadow-lg">
                 <i class="fa-solid fa-star"></i>
             </div>
@@ -349,8 +351,8 @@
     </div>
 
     <!-- Game Over Modal -->
-    <div id="game-over-modal" class="fixed inset-0 bg-black/75 z-50 hidden items-center justify-center p-4">
-        <div class="theme-panel border-4 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl">
+    <div id="game-over-modal" class="modal-backdrop fixed inset-0 bg-black/75 z-50 hidden items-center justify-center p-4">
+        <div class="modal-card theme-panel border-4 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl">
             <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-rose-500/20 border-2 border-rose-400/40 flex items-center justify-center text-rose-400 text-3xl shadow-lg">
                 <i id="game-over-icon" class="fa-solid fa-burst"></i>
             </div>

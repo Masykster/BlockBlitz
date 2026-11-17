@@ -89,6 +89,11 @@ let dragState = null;
 let cachedBoardMetrics = null;
 let snapRafId = null;
 let pendingDragCoords = null;
+let scoreRafId = null;
+let returnTimeoutId = null;
+let returningSlotIndex = null;
+let lastComboDisplayed = 0;
+const modalCloseTimers = new WeakMap();
 const lastCellSignatures = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(''));
 const lastCellBombs = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null));
 
@@ -112,6 +117,7 @@ const comboBadgeEl = document.getElementById('combo-badge');
 const comboCountEl = document.getElementById('combo-count');
 const streakDotsEl = document.getElementById('streak-dots');
 const dragProxyEl = document.getElementById('drag-proxy');
+const dragProxyInnerEl = document.getElementById('drag-proxy-inner');
 const exitToastEl = document.getElementById('exit-toast');
 
 const rerollBtn = document.getElementById('reroll-btn');
@@ -132,19 +138,50 @@ const gameOverModal = document.getElementById('game-over-modal');
 const particles = new ParticleSystem(fxCanvas);
 const cellElements = [];
 
-function setModalVisible(modalEl, visible) {
+function setModalVisible(modalEl, visible, immediate = false) {
   if (!modalEl) return;
-  if (visible) {
-    modalEl.classList.remove('hidden');
-    modalEl.classList.add('flex');
-  } else {
-    modalEl.classList.add('hidden');
-    modalEl.classList.remove('flex');
+  const existingTimer = modalCloseTimers.get(modalEl);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+    modalCloseTimers.delete(modalEl);
   }
+
+  if (visible) {
+    modalEl.classList.remove('hidden', 'modal-closing', 'pointer-events-none');
+    modalEl.classList.add('flex', 'modal-open');
+    return;
+  }
+
+  if (immediate || modalEl.classList.contains('hidden')) {
+    modalEl.classList.add('hidden');
+    modalEl.classList.remove('flex', 'modal-open', 'modal-closing', 'pointer-events-none');
+    return;
+  }
+
+  modalEl.classList.remove('modal-open');
+  modalEl.classList.add('modal-closing', 'pointer-events-none');
+  const timer = setTimeout(() => {
+    modalCloseTimers.delete(modalEl);
+    modalEl.classList.add('hidden');
+    modalEl.classList.remove('flex', 'modal-closing', 'pointer-events-none');
+  }, 145);
+  modalCloseTimers.set(modalEl, timer);
 }
 
 function isModalVisible(modalEl) {
-  return modalEl && !modalEl.classList.contains('hidden');
+  return (
+    modalEl &&
+    !modalEl.classList.contains('hidden') &&
+    !modalEl.classList.contains('modal-closing')
+  );
+}
+
+function triggerScreenEnter(screenEl) {
+  if (!screenEl) return;
+  screenEl.classList.remove('screen-enter');
+  requestAnimationFrame(() => {
+    screenEl.classList.add('screen-enter');
+  });
 }
 
 function applyTheme(themeId) {
@@ -268,14 +305,15 @@ function showMainMenu() {
   setHammerTargeting(false);
 
   currentScreen = 'menu';
-  setModalVisible(pauseModal, false);
-  setModalVisible(gameOverModal, false);
-  setModalVisible(levelClearModal, false);
+  setModalVisible(pauseModal, false, true);
+  setModalVisible(gameOverModal, false, true);
+  setModalVisible(levelClearModal, false, true);
 
   gameScreen.classList.add('hidden');
-  gameScreen.classList.remove('flex');
+  gameScreen.classList.remove('flex', 'screen-enter');
   mainMenuScreen.classList.remove('hidden');
   mainMenuScreen.classList.add('flex');
+  triggerScreenEnter(mainMenuScreen);
 
   renderMainMenuCards();
 }
@@ -285,12 +323,13 @@ function renderMainMenuCards() {
   const stats = loadStats();
   modeCardsContainer.innerHTML = '';
 
-  GAME_MODE_LIST.forEach((mode) => {
+  GAME_MODE_LIST.forEach((mode, idx) => {
     const saved = loadModeSave(mode.id);
     const hasContinuableSave = Boolean(saved && !saved.isGameOver && !saved.isLevelComplete);
 
     const card = document.createElement('div');
-    card.className = 'theme-panel border-2 rounded-2xl p-3.5 shadow-lg flex flex-col justify-between gap-2.5';
+    card.className = 'menu-card-enter theme-panel border-2 rounded-2xl p-3.5 shadow-lg flex flex-col justify-between gap-2.5';
+    card.style.animationDelay = `${idx * 40}ms`;
 
     const topRow = document.createElement('div');
     topRow.className = 'flex items-start justify-between gap-2.5';
@@ -483,13 +522,14 @@ function startModeGame(modeId, continueSaved = false, explicitAdventureLevel = n
   currentScreen = 'game';
 
   mainMenuScreen.classList.add('hidden');
-  mainMenuScreen.classList.remove('flex');
+  mainMenuScreen.classList.remove('flex', 'screen-enter');
   gameScreen.classList.remove('hidden');
   gameScreen.classList.add('flex');
+  triggerScreenEnter(gameScreen);
 
-  setModalVisible(pauseModal, false);
-  setModalVisible(gameOverModal, false);
-  setModalVisible(levelClearModal, false);
+  setModalVisible(pauseModal, false, true);
+  setModalVisible(gameOverModal, false, true);
+  setModalVisible(levelClearModal, false, true);
 
   isPaused = false;
   isClearing = false;
@@ -563,6 +603,12 @@ function startModeGame(modeId, continueSaved = false, explicitAdventureLevel = n
   persistCurrentState();
   startBlitzTimerIfNeeded();
   checkGameOverState();
+
+  requestAnimationFrame(() => {
+    if (currentScreen === 'game') {
+      cachedBoardMetrics = computeBoardMetrics();
+    }
+  });
 }
 
 function invalidateBoardDiffCache() {
@@ -609,6 +655,7 @@ function renderBoard(previewData = null) {
       }
 
       if (nextClass !== lastCellSignatures[r][c]) {
+        el.style.animationDelay = '';
         el.className = nextClass;
         lastCellSignatures[r][c] = nextClass;
       }
@@ -636,19 +683,22 @@ function addScore(points) {
   currentScoreEl.classList.add('scale-110');
   setTimeout(() => currentScoreEl.classList.remove('scale-110'), 130);
 
+  if (scoreRafId !== null) return;
+
   const animateStep = () => {
     if (displayedScore < score) {
       const diff = score - displayedScore;
       const step = Math.max(1, Math.ceil(diff * 0.28));
       displayedScore = Math.min(score, displayedScore + step);
       currentScoreEl.textContent = displayedScore.toLocaleString('id-ID');
-      requestAnimationFrame(animateStep);
-    } else if (displayedScore > score) {
+      scoreRafId = requestAnimationFrame(animateStep);
+    } else {
       displayedScore = score;
       currentScoreEl.textContent = displayedScore.toLocaleString('id-ID');
+      scoreRafId = null;
     }
   };
-  requestAnimationFrame(animateStep);
+  scoreRafId = requestAnimationFrame(animateStep);
 }
 
 function spawnNewTray(animate = true) {
@@ -659,18 +709,20 @@ function spawnNewTray(animate = true) {
 }
 
 function renderTray(animate = false) {
+  const slotsToAnimate = [];
   for (let i = 0; i < 3; i++) {
     const slotEl = document.getElementById(`slot-${i}`);
     slotEl.innerHTML = '';
-    slotEl.style.opacity = dragState && dragState.slotIndex === i ? '0' : '1';
-    slotEl.classList.remove('unplaceable', 'spawn-anim');
+    slotEl.style.opacity =
+      (dragState && dragState.slotIndex === i) || returningSlotIndex === i ? '0' : '1';
+    slotEl.style.animationDelay = '';
+    slotEl.classList.remove('unplaceable', 'spawn-anim', 'slot-return-anim');
 
     const piece = trayPieces[i];
     if (!piece) continue;
 
     if (animate) {
-      void slotEl.offsetWidth;
-      slotEl.classList.add('spawn-anim');
+      slotsToAnimate.push({ slotEl, delayMs: i * 55 });
     }
 
     if (!canPieceFitAnywhere(board, piece)) {
@@ -700,6 +752,15 @@ function renderTray(animate = false) {
     }
     slotEl.appendChild(pieceGrid);
   }
+
+  if (slotsToAnimate.length > 0) {
+    requestAnimationFrame(() => {
+      for (const { slotEl, delayMs } of slotsToAnimate) {
+        slotEl.style.animationDelay = `${delayMs}ms`;
+        slotEl.classList.add('spawn-anim');
+      }
+    });
+  }
 }
 
 function computeBoardMetrics() {
@@ -712,7 +773,22 @@ function computeBoardMetrics() {
   return { rect, cellStep, cellSize, gap };
 }
 
+function cancelReturnAnimation() {
+  if (returnTimeoutId !== null) {
+    clearTimeout(returnTimeoutId);
+    returnTimeoutId = null;
+  }
+  if (returningSlotIndex !== null) {
+    const prevSlot = document.getElementById(`slot-${returningSlotIndex}`);
+    if (prevSlot) prevSlot.style.opacity = '1';
+    returningSlotIndex = null;
+  }
+  dragProxyEl.classList.remove('is-returning');
+  dragProxyEl.style.opacity = '1';
+}
+
 function cancelDragIfActive() {
+  cancelReturnAnimation();
   if (snapRafId !== null) {
     cancelAnimationFrame(snapRafId);
     snapRafId = null;
@@ -743,20 +819,24 @@ function startDrag(slotIndex, clientX, clientY, isTouch, touchId = null) {
   const piece = trayPieces[slotIndex];
   if (!piece) return;
 
+  cancelReturnAnimation();
   sfx.pickup();
   haptics.pickup();
 
-  cachedBoardMetrics = computeBoardMetrics();
+  if (!cachedBoardMetrics || cachedBoardMetrics.rect.width <= 0) {
+    cachedBoardMetrics = computeBoardMetrics();
+  }
   const { cellStep, cellSize, gap } = cachedBoardMetrics;
   const rows = piece.matrix.length;
   const cols = piece.matrix[0].length;
 
   const frag = document.createDocumentFragment();
-  dragProxyEl.innerHTML = '';
-  dragProxyEl.style.display = 'grid';
-  dragProxyEl.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
-  dragProxyEl.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
-  dragProxyEl.style.gap = `${gap}px`;
+  dragProxyInnerEl.innerHTML = '';
+  dragProxyInnerEl.classList.add('is-picking');
+  dragProxyInnerEl.style.display = 'grid';
+  dragProxyInnerEl.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
+  dragProxyInnerEl.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
+  dragProxyInnerEl.style.gap = `${gap}px`;
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -767,7 +847,9 @@ function startDrag(slotIndex, clientX, clientY, isTouch, touchId = null) {
       frag.appendChild(cell);
     }
   }
-  dragProxyEl.appendChild(frag);
+  dragProxyInnerEl.appendChild(frag);
+  dragProxyEl.style.opacity = '1';
+  dragProxyEl.style.display = 'block';
 
   const proxyWidth = cols * cellSize + Math.max(0, cols - 1) * gap;
   const proxyHeight = rows * cellSize + Math.max(0, rows - 1) * gap;
@@ -788,6 +870,9 @@ function startDrag(slotIndex, clientX, clientY, isTouch, touchId = null) {
   };
 
   moveDrag(clientX, clientY);
+  requestAnimationFrame(() => {
+    dragProxyInnerEl.classList.remove('is-picking');
+  });
 }
 
 function updateDragSnapPreview(coords) {
@@ -896,21 +981,46 @@ function endDrag() {
     pendingDragCoords = null;
   }
 
-  const { slotIndex, piece, targetR, targetC } = dragState;
+  const { slotIndex, piece, proxyWidth, proxyHeight, targetR, targetC } = dragState;
   const slotEl = document.getElementById(`slot-${slotIndex}`);
-  dragProxyEl.style.display = 'none';
-  dragProxyEl.style.transform = 'translate3d(-9999px, -9999px, 0)';
   dragState = null;
 
   if (targetR !== null && targetC !== null && canPieceFitAt(board, piece, targetR, targetC)) {
+    dragProxyEl.style.display = 'none';
+    dragProxyEl.style.transform = 'translate3d(-9999px, -9999px, 0)';
     slotEl.style.opacity = '1';
     placePieceOnBoard(slotIndex, piece, targetR, targetC);
-  } else {
-    sfx.invalid();
-    haptics.invalid();
-    slotEl.style.opacity = '1';
-    renderBoard(null);
+    return;
   }
+
+  sfx.invalid();
+  haptics.invalid();
+  renderBoard(null);
+
+  const slotRect = slotEl.getBoundingClientRect();
+  const targetLeft = slotRect.left + slotRect.width / 2 - proxyWidth / 2;
+  const targetTop = slotRect.top + slotRect.height / 2 - proxyHeight / 2;
+
+  returningSlotIndex = slotIndex;
+  dragProxyEl.classList.add('is-returning');
+  requestAnimationFrame(() => {
+    dragProxyEl.style.opacity = '0.18';
+    dragProxyEl.style.transform = `translate3d(${targetLeft}px, ${targetTop}px, 0) scale(0.54)`;
+  });
+
+  returnTimeoutId = setTimeout(() => {
+    returnTimeoutId = null;
+    returningSlotIndex = null;
+    dragProxyEl.classList.remove('is-returning');
+    dragProxyEl.style.display = 'none';
+    dragProxyEl.style.opacity = '1';
+    dragProxyEl.style.transform = 'translate3d(-9999px, -9999px, 0)';
+    slotEl.style.opacity = '1';
+    slotEl.classList.remove('slot-return-anim');
+    requestAnimationFrame(() => {
+      slotEl.classList.add('slot-return-anim');
+    });
+  }, 170);
 }
 
 function findTrackedTouch(touchList, touchId) {
@@ -975,6 +1085,46 @@ window.addEventListener('touchcancel', (e) => {
     endDrag();
   }
 });
+
+function triggerBoardShake() {
+  boardContainerEl.classList.remove('shake-board');
+  requestAnimationFrame(() => {
+    boardContainerEl.classList.add('shake-board');
+  });
+}
+
+function spawnLineBeams(clearingRows, clearingCols) {
+  const gridLeft = boardGridEl.offsetLeft;
+  const gridTop = boardGridEl.offsetTop;
+  const gridWidth = boardGridEl.offsetWidth;
+  const gridHeight = boardGridEl.offsetHeight;
+
+  clearingRows.forEach((r) => {
+    const sampleCell = cellElements[r]?.[0];
+    if (!sampleCell) return;
+    const beam = document.createElement('div');
+    beam.className = 'line-beam line-beam-row';
+    beam.style.left = `${gridLeft}px`;
+    beam.style.top = `${sampleCell.offsetTop}px`;
+    beam.style.width = `${gridWidth}px`;
+    beam.style.height = `${sampleCell.offsetHeight}px`;
+    floatingUiEl.appendChild(beam);
+    setTimeout(() => beam.remove(), 280);
+  });
+
+  clearingCols.forEach((c) => {
+    const sampleCell = cellElements[0]?.[c];
+    if (!sampleCell) return;
+    const beam = document.createElement('div');
+    beam.className = 'line-beam line-beam-col';
+    beam.style.left = `${sampleCell.offsetLeft}px`;
+    beam.style.top = `${gridTop}px`;
+    beam.style.width = `${sampleCell.offsetWidth}px`;
+    beam.style.height = `${gridHeight}px`;
+    floatingUiEl.appendChild(beam);
+    setTimeout(() => beam.remove(), 280);
+  });
+}
 
 function captureUndoSnapshot() {
   undoSnapshot = {
@@ -1077,13 +1227,15 @@ function placePieceOnBoard(slotIndex, piece, startR, startC) {
     }
 
     if (totalLinesCleared >= 2 || comboCount >= 2) {
-      boardContainerEl.classList.remove('shake-board');
-      void boardContainerEl.offsetWidth;
-      boardContainerEl.classList.add('shake-board');
+      triggerBoardShake();
     }
+
+    spawnLineBeams(clearingRows, clearingCols);
 
     cellsToClear.forEach(({ r, c, color }) => {
       const el = cellElements[r][c];
+      const waveDelay = Math.min((Math.abs(r - startR) + Math.abs(c - startC)) * 14, 90);
+      el.style.animationDelay = `${waveDelay}ms`;
       el.classList.add('clearing-cell');
       el.textContent = '';
       lastCellSignatures[r][c] = '';
@@ -1119,7 +1271,7 @@ function placePieceOnBoard(slotIndex, piece, startR, startC) {
       isClearing = false;
       renderBoard(null);
       finishMoveModeLifecycle();
-    }, 260);
+    }, 295);
   } else {
     addScore(blocksPlacedCount);
     showFloatingScore(`+${blocksPlacedCount}`, relX, relY, false);
@@ -1227,9 +1379,7 @@ function onBoardCellTapped(r, c) {
     setTimeout(() => sfx.defuse(), 90);
   }
 
-  boardContainerEl.classList.remove('shake-board');
-  void boardContainerEl.offsetWidth;
-  boardContainerEl.classList.add('shake-board');
+  triggerBoardShake();
 
   clearedCells.forEach(({ r: cr, c: cc, color }) => {
     const el = cellElements[cr][cc];
@@ -1261,6 +1411,12 @@ function updateComboUI() {
     comboCountEl.textContent = String(comboCount);
     comboBadgeEl.classList.remove('hidden');
     comboBadgeEl.classList.add('flex');
+    if (comboCount !== lastComboDisplayed) {
+      comboBadgeEl.classList.remove('combo-pop');
+      requestAnimationFrame(() => {
+        comboBadgeEl.classList.add('combo-pop');
+      });
+    }
 
     streakDotsEl.classList.remove('hidden');
     streakDotsEl.classList.add('flex');
@@ -1274,10 +1430,11 @@ function updateComboUI() {
     }
   } else {
     comboBadgeEl.classList.add('hidden');
-    comboBadgeEl.classList.remove('flex');
+    comboBadgeEl.classList.remove('flex', 'combo-pop');
     streakDotsEl.classList.add('hidden');
     streakDotsEl.classList.remove('flex');
   }
+  lastComboDisplayed = comboCount;
 }
 
 function showFloatingScore(text, x, y, isBig) {
@@ -1713,9 +1870,7 @@ if (document.readyState === 'loading') {
 window.addEventListener('resize', () => {
   particles.resize();
   if (currentScreen === 'game') {
-    if (dragState) {
-      cachedBoardMetrics = computeBoardMetrics();
-    }
+    cachedBoardMetrics = computeBoardMetrics();
     renderTray(false);
   }
 });
